@@ -16,6 +16,7 @@ endmacro(add_toy_chapter name)
 
 # For a better template to copy, see examples/standalone
 add_subdirectory(include)
+add_subdirectory(inc)
 
 set(LLVM_LINK_COMPONENTS
   Support
@@ -26,12 +27,15 @@ add_toy_chapter(toyc-ch2
   parser/AST.cpp
   mlir/MLIRGen.cpp
   mlir/Dialect.cpp
+  src/dialect/es2tolvadialect.cpp
+  src/dialect/es2tolvaops.cpp
 
   DEPENDS
   ToyCh2OpsIncGen
 
   )
 include_directories(include/)
+include_directories(inc/)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/include/)
 target_link_libraries(toyc-ch2
   PRIVATE
