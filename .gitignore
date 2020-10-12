@@ -2,5 +2,8 @@
 build*/
 
 # Visual Studio Code files
-.vscode/
-*.code-workspace
+# .vscode/
+# *.code-workspace
+
+# Visual Studio files
+.vs/
