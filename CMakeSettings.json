@@ -9,18 +9,8 @@
       "installRoot": "${projectDir}\\install\\${name}",
       "variables": [
         {
-          "name": "CMAKE_EXPORT_COMPILE_COMMANDS",
-          "value": "True",
-          "type": "BOOL"
-        },
-        {
           "name": "EMITC_INCLUDE_TESTS",
           "value": "False",
-          "type": "BOOL"
-        },
-        {
-          "name": "EMITC_ENABLE_HLO",
-          "value": "True",
           "type": "BOOL"
         }
       ]
