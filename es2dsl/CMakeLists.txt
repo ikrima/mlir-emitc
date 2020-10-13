@@ -32,7 +32,10 @@ add_toy_chapter(es2dsl
   mlir/Dialect.cpp
   src/dialect/es2tolvadialect.cpp
   src/dialect/es2tolvaops.cpp
-  src/dialect/es2mlirsubsys.cpp
+  src/dialect/es2mlirpasses.cpp
+  src/subsys/es2mlirsubsys.cpp
+  D:/ikrima/src/pubrepos/llvm-project/clang/utils/ClangVisualizers/clang.natvis
+  D:/ikrima/src/pubrepos/llvm-project/llvm/utils/LLVMVisualizers/llvm.natvis
 
   DEPENDS
   ToyCh2OpsIncGen

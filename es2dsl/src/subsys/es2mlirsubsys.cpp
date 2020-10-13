@@ -5,15 +5,22 @@
 #include "es2dsl/subsys/es2mlirsubsys.h"
 #include "es2dsl/subsys/es2tlvast.h"
 
-#include "mlir/IR/Attributes.h"
-#include "mlir/IR/Builders.h"
-#include "mlir/IR/Function.h"
+#include "mlir/ExecutionEngine/ExecutionEngine.h"
+#include "mlir/ExecutionEngine/OptUtils.h"
+#include "mlir/IR/AsmState.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Module.h"
-#include "mlir/IR/StandardTypes.h"
 #include "mlir/IR/Verifier.h"
-#include "mlir/Support/LogicalResult.h"
+#include "mlir/InitAllDialects.h"
+#include "mlir/Parser.h"
+#include "mlir/Pass/Pass.h"
+#include "mlir/Pass/PassManager.h"
+#include "mlir/Target/LLVMIR.h"
+#include "mlir/Transforms/Passes.h"
 
+#include "../../../include/emitc/Target/Cpp.h"
+
+#include "es2dsl/dialect/es2mlirpasses.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopedHashTable.h"
 #include "llvm/Support/raw_ostream.h"
@@ -459,14 +466,16 @@ return ret;
         args.emplace_back(make_unique<VarExpr_ast>(SrcLoc_t{file, 3, 20}, "a"));
         fnbody->emplace_back(make_unique<VarDeclExpr_ast>(
             SrcLoc_t{file, 3, 1}, "a2", VarType{},
-            make_unique<CallExpr_ast>(SrcLoc_t{file, 3, 10}, "transpose", move(args))));
+            make_unique<CallExpr_ast>(SrcLoc_t{file, 3, 10}, "transpose",
+                                      move(args))));
       }
       {
         vector<unique_ptr<Expr_ast>> args;
         args.emplace_back(make_unique<VarExpr_ast>(SrcLoc_t{file, 4, 20}, "b"));
         fnbody->emplace_back(make_unique<VarDeclExpr_ast>(
             SrcLoc_t{file, 4, 1}, "b2", VarType{},
-            make_unique<CallExpr_ast>(SrcLoc_t{file, 4, 10}, "transpose",move(args))));
+            make_unique<CallExpr_ast>(SrcLoc_t{file, 4, 10}, "transpose",
+                                      move(args))));
       }
       {
         fnbody->emplace_back(make_unique<VarDeclExpr_ast>(
@@ -496,16 +505,55 @@ mlir::OwningModuleRef es2::mlirGen(mlir::MLIRContext &context,
   return TLVIRGenImpl(context).mlirGen(moduleAST);
 }
 
+int loadMLIR(llvm::SourceMgr &sourceMgr, mlir::MLIRContext &context,
+             mlir::OwningModuleRef &module) {
+  using namespace std;
+  unique_ptr<Module_ast> tlvmdlast = es2::astGenModule();
+  if (!tlvmdlast)
+    return 6;
+  module = mlirGen(context, *tlvmdlast);
+  return !module ? 1 : 0;
+
+  //// Handle '.toy' input to the compiler.
+  // if (inputType != InputType::MLIR &&
+  //  !llvm::StringRef(inputFilename).endswith(".mlir")) {
+  //  auto moduleAST = parseInputFile(inputFilename);
+  //  if (!moduleAST)
+  //    return 6;
+  //  module = mlirGen(context, *moduleAST);
+  //  return !module ? 1 : 0;
+  //}
+
+  //// Otherwise, the input is '.mlir'.
+  // llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> fileOrErr =
+  //  llvm::MemoryBuffer::getFileOrSTDIN(inputFilename);
+  // if (std::error_code EC = fileOrErr.getError()) {
+  //  llvm::errs() << "Could not open input file: " << EC.message() << "\n";
+  //  return -1;
+  //}
+
+  //// Parse the input mlir.
+  // sourceMgr.AddNewSourceBuffer(std::move(*fileOrErr), llvm::SMLoc());
+  // module = mlir::parseSourceFile(sourceMgr, &context);
+  // if (!module) {
+  //  llvm::errs() << "Error can't load file " << inputFilename << "\n";
+  //  return 3;
+  //}
+  return 0;
+}
+
 int es2::dumpTolvaMLIR() {
   using namespace std;
   mlir::MLIRContext context(/*loadAllDialects=*/false);
   // Load our Dialect in this MLIR Context.
   context.getOrLoadDialect<mlir::tolva::TolvaDialect>();
-  unique_ptr<Module_ast> tlvmdl = es2::astGenModule();
-  mlir::OwningModuleRef module = mlirGen(context, *tlvmdl);
-  if (!module)
-    return 1;
-  // clang-format off  
+  mlir::OwningModuleRef module;
+  llvm::SourceMgr sourceMgr;
+  mlir::SourceMgrDiagnosticHandler sourceMgrHandler(sourceMgr, &context);
+  if (int error = loadMLIR(sourceMgr, context, module))
+    return error;
+
+  // clang-format off
   llvm::outs() << "//------------------------------------------------------------------------------//\n";
   llvm::outs() << "TLVIR:\n";
   llvm::outs() << "//------------------------------------------------------------------------------//\n";
@@ -513,5 +561,34 @@ int es2::dumpTolvaMLIR() {
   llvm::outs() << "\n\n";
   llvm::outs() << "//------------------------------------------------------------------------------//\n\n\n";
   // clang-format on
+
+  mlir::PassManager pm(&context);
+  // Apply any generic pass manager command line options and run the pipeline.
+  applyPassManagerCLOptions(pm);
+
+  mlirTranslate(*module->getOperation());
+#if 0
+  {
+
+    // Check to see what granularity of MLIR we are compiling to.
+    bool isLoweringToCpp = true;
+
+    if (isLoweringToCpp) {
+      // Finish lowering the toy IR to the LLVM dialect.
+      pm.addPass(mlir::tolva::createLowerToCppPass());
+    }
+
+    if (mlir::failed(pm.run(*module)))
+      return 4;
+
+    module->dump();
+    return 0;
+  }
+#endif // 0
+
   return 0;
+}
+
+int es2::mlirTranslate(mlir::Operation &op) {
+  return failed(mlir::emitc::TranslateToCpp(op, llvm::outs(), false));
 }

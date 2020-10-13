@@ -11,6 +11,7 @@
 namespace mlir {
   class MLIRContext;
   class OwningModuleRef;
+  class Operation;
 } // namespace mlir
 
 namespace es2 {
@@ -21,4 +22,5 @@ namespace es2 {
   /// or nullptr on failure.
   mlir::OwningModuleRef mlirGen(mlir::MLIRContext& context, Module_ast& moduleAST);
   int dumpTolvaMLIR();
+  int mlirTranslate(mlir::Operation& op);
 } // namespace toy

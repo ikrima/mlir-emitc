@@ -656,6 +656,7 @@ LogicalResult CppEmitter::emitType(Type type) {
     os << ot.getTypeData();
     return success();
   }
+  type.dump();
   return failure();
 }
 
