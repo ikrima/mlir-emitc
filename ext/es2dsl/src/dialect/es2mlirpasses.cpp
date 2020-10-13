@@ -1,7 +1,8 @@
 #include "es2dsl/dialect/es2mlirpasses.h"
+
 #include "es2dsl/dialect/es2tolvadialect.h"
 #include "es2dsl/dialect/es2tolvaops.h"
-
+#include "llvm/ADT/Sequence.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVM.h"
@@ -12,9 +13,9 @@
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
-#include "llvm/ADT/Sequence.h"
 
 using namespace mlir;
+
 
 
 //===----------------------------------------------------------------------===//
@@ -22,13 +23,10 @@ using namespace mlir;
 //===----------------------------------------------------------------------===//
 
 namespace {
-  struct TolvaToCppLoweringPass
-    : public PassWrapper<TolvaToCppLoweringPass, OperationPass<ModuleOp>> {
-    void getDependentDialects(DialectRegistry& registry) const override {
-      registry.insert<LLVM::LLVMDialect, scf::SCFDialect>();
-    }
+struct TolvaToCppLoweringPass : public PassWrapper<TolvaToCppLoweringPass, OperationPass<ModuleOp>> {
+  void getDependentDialects(DialectRegistry& registry) const override { registry.insert<LLVM::LLVMDialect, scf::SCFDialect>(); }
     void runOnOperation() final;
-  };
+};
 } // end anonymous namespace
 
 void TolvaToCppLoweringPass::runOnOperation() {
@@ -54,7 +52,7 @@ void TolvaToCppLoweringPass::runOnOperation() {
   // patterns must be applied to fully transform an illegal operation into a
   // set of legal ones.
   OwningRewritePatternList patterns;
-  #if 0
+#if 0
   populateAffineToStdConversionPatterns(patterns, &getContext());
   populateLoopToStdConversionPatterns(patterns, &getContext());
   populateStdToLLVMConversionPatterns(typeConverter, patterns);
@@ -67,8 +65,9 @@ patterns.insert<PrintOpLowering>(&getContext());
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.
   auto module = getOperation();
-  if (failed(applyFullConversion(module, target, patterns)))
+  if (failed(applyFullConversion(module, target, patterns))) {
     signalPassFailure();
+  }
 }
 
 /// Create a pass for lowering operations the remaining `Toy` operations, as
