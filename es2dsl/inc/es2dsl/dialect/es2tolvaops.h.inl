@@ -15,7 +15,27 @@ class ConstantOp;
 } // namespace mlir
 namespace mlir {
 namespace tolva {
+class GenericCallOp;
+} // namespace tolva
+} // namespace mlir
+namespace mlir {
+namespace tolva {
 class PrintOp;
+} // namespace tolva
+} // namespace mlir
+namespace mlir {
+namespace tolva {
+class ReshapeOp;
+} // namespace tolva
+} // namespace mlir
+namespace mlir {
+namespace tolva {
+class ReturnOp;
+} // namespace tolva
+} // namespace mlir
+namespace mlir {
+namespace tolva {
+class TransposeOp;
 } // namespace tolva
 } // namespace mlir
 #endif
@@ -71,6 +91,53 @@ namespace mlir {
 namespace tolva {
 
 //===----------------------------------------------------------------------===//
+// ::mlir::tolva::GenericCallOp declarations
+//===----------------------------------------------------------------------===//
+
+class GenericCallOpAdaptor {
+public:
+  GenericCallOpAdaptor(::mlir::ValueRange values, ::mlir::DictionaryAttr attrs = nullptr);
+  GenericCallOpAdaptor(GenericCallOp&op);
+  std::pair<unsigned, unsigned> getODSOperandIndexAndLength(unsigned index);
+  ::mlir::ValueRange getODSOperands(unsigned index);
+  ::mlir::ValueRange inputs();
+  ::mlir::FlatSymbolRefAttr callee();
+  ::mlir::LogicalResult verify(::mlir::Location loc);
+
+private:
+  ::mlir::ValueRange odsOperands;
+  ::mlir::DictionaryAttr odsAttrs;
+};
+class GenericCallOp : public ::mlir::Op<GenericCallOp, ::mlir::OpTrait::ZeroRegion, ::mlir::OpTrait::OneResult, ::mlir::OpTrait::ZeroSuccessor, ::mlir::OpTrait::VariadicOperands> {
+public:
+  using Op::Op;
+  using Adaptor = GenericCallOpAdaptor;
+  static ::llvm::StringRef getOperationName();
+  std::pair<unsigned, unsigned> getODSOperandIndexAndLength(unsigned index);
+  ::mlir::Operation::operand_range getODSOperands(unsigned index);
+  ::mlir::Operation::operand_range inputs();
+  ::mlir::MutableOperandRange inputsMutable();
+  std::pair<unsigned, unsigned> getODSResultIndexAndLength(unsigned index);
+  ::mlir::Operation::result_range getODSResults(unsigned index);
+  ::mlir::FlatSymbolRefAttr calleeAttr();
+  ::llvm::StringRef callee();
+  void calleeAttr(::mlir::FlatSymbolRefAttr attr);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, StringRef callee, ArrayRef<Value> arguments);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type resultType0, ::mlir::FlatSymbolRefAttr callee, ::mlir::ValueRange inputs);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::FlatSymbolRefAttr callee, ::mlir::ValueRange inputs);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type resultType0, ::llvm::StringRef callee, ::mlir::ValueRange inputs);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::llvm::StringRef callee, ::mlir::ValueRange inputs);
+  static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+  ::mlir::LogicalResult verify();
+  static ::mlir::ParseResult parse(::mlir::OpAsmParser &parser, ::mlir::OperationState &result);
+  void print(::mlir::OpAsmPrinter &p);
+};
+} // namespace tolva
+} // namespace mlir
+namespace mlir {
+namespace tolva {
+
+//===----------------------------------------------------------------------===//
 // ::mlir::tolva::PrintOp declarations
 //===----------------------------------------------------------------------===//
 
@@ -99,6 +166,131 @@ public:
   std::pair<unsigned, unsigned> getODSResultIndexAndLength(unsigned index);
   ::mlir::Operation::result_range getODSResults(unsigned index);
   static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Value input);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value input);
+  static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+  ::mlir::LogicalResult verify();
+  static ::mlir::ParseResult parse(::mlir::OpAsmParser &parser, ::mlir::OperationState &result);
+  void print(::mlir::OpAsmPrinter &p);
+};
+} // namespace tolva
+} // namespace mlir
+namespace mlir {
+namespace tolva {
+
+//===----------------------------------------------------------------------===//
+// ::mlir::tolva::ReshapeOp declarations
+//===----------------------------------------------------------------------===//
+
+class ReshapeOpAdaptor {
+public:
+  ReshapeOpAdaptor(::mlir::ValueRange values, ::mlir::DictionaryAttr attrs = nullptr);
+  ReshapeOpAdaptor(ReshapeOp&op);
+  std::pair<unsigned, unsigned> getODSOperandIndexAndLength(unsigned index);
+  ::mlir::ValueRange getODSOperands(unsigned index);
+  ::mlir::Value input();
+  ::mlir::LogicalResult verify(::mlir::Location loc);
+
+private:
+  ::mlir::ValueRange odsOperands;
+  ::mlir::DictionaryAttr odsAttrs;
+};
+class ReshapeOp : public ::mlir::Op<ReshapeOp, ::mlir::OpTrait::ZeroRegion, ::mlir::OpTrait::OneResult, ::mlir::OpTrait::ZeroSuccessor, ::mlir::OpTrait::OneOperand> {
+public:
+  using Op::Op;
+  using Adaptor = ReshapeOpAdaptor;
+  static ::llvm::StringRef getOperationName();
+  std::pair<unsigned, unsigned> getODSOperandIndexAndLength(unsigned index);
+  ::mlir::Operation::operand_range getODSOperands(unsigned index);
+  ::mlir::Value input();
+  ::mlir::MutableOperandRange inputMutable();
+  std::pair<unsigned, unsigned> getODSResultIndexAndLength(unsigned index);
+  ::mlir::Operation::result_range getODSResults(unsigned index);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type resultType0, ::mlir::Value input);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value input);
+  static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+  ::mlir::LogicalResult verify();
+  static ::mlir::ParseResult parse(::mlir::OpAsmParser &parser, ::mlir::OperationState &result);
+  void print(::mlir::OpAsmPrinter &p);
+};
+} // namespace tolva
+} // namespace mlir
+namespace mlir {
+namespace tolva {
+
+//===----------------------------------------------------------------------===//
+// ::mlir::tolva::ReturnOp declarations
+//===----------------------------------------------------------------------===//
+
+class ReturnOpAdaptor {
+public:
+  ReturnOpAdaptor(::mlir::ValueRange values, ::mlir::DictionaryAttr attrs = nullptr);
+  ReturnOpAdaptor(ReturnOp&op);
+  std::pair<unsigned, unsigned> getODSOperandIndexAndLength(unsigned index);
+  ::mlir::ValueRange getODSOperands(unsigned index);
+  ::mlir::ValueRange input();
+  ::mlir::LogicalResult verify(::mlir::Location loc);
+
+private:
+  ::mlir::ValueRange odsOperands;
+  ::mlir::DictionaryAttr odsAttrs;
+};
+class ReturnOp : public ::mlir::Op<ReturnOp, ::mlir::OpTrait::ZeroRegion, ::mlir::OpTrait::ZeroResult, ::mlir::OpTrait::ZeroSuccessor, ::mlir::OpTrait::VariadicOperands, ::mlir::MemoryEffectOpInterface::Trait, ::mlir::OpTrait::HasParent<FuncOp>::Impl, ::mlir::OpTrait::IsTerminator> {
+public:
+  using Op::Op;
+  using Adaptor = ReturnOpAdaptor;
+  static ::llvm::StringRef getOperationName();
+  std::pair<unsigned, unsigned> getODSOperandIndexAndLength(unsigned index);
+  ::mlir::Operation::operand_range getODSOperands(unsigned index);
+  ::mlir::Operation::operand_range input();
+  ::mlir::MutableOperandRange inputMutable();
+  std::pair<unsigned, unsigned> getODSResultIndexAndLength(unsigned index);
+  ::mlir::Operation::result_range getODSResults(unsigned index);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::ValueRange input);
+  static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+  ::mlir::LogicalResult verify();
+  static ::mlir::ParseResult parse(::mlir::OpAsmParser &parser, ::mlir::OperationState &result);
+  void print(::mlir::OpAsmPrinter &p);
+  void getEffects(::mlir::SmallVectorImpl<::mlir::SideEffects::EffectInstance<::mlir::MemoryEffects::Effect>> &effects);
+
+    bool hasOperand() { return getNumOperands() != 0; }
+  
+};
+} // namespace tolva
+} // namespace mlir
+namespace mlir {
+namespace tolva {
+
+//===----------------------------------------------------------------------===//
+// ::mlir::tolva::TransposeOp declarations
+//===----------------------------------------------------------------------===//
+
+class TransposeOpAdaptor {
+public:
+  TransposeOpAdaptor(::mlir::ValueRange values, ::mlir::DictionaryAttr attrs = nullptr);
+  TransposeOpAdaptor(TransposeOp&op);
+  std::pair<unsigned, unsigned> getODSOperandIndexAndLength(unsigned index);
+  ::mlir::ValueRange getODSOperands(unsigned index);
+  ::mlir::Value input();
+  ::mlir::LogicalResult verify(::mlir::Location loc);
+
+private:
+  ::mlir::ValueRange odsOperands;
+  ::mlir::DictionaryAttr odsAttrs;
+};
+class TransposeOp : public ::mlir::Op<TransposeOp, ::mlir::OpTrait::ZeroRegion, ::mlir::OpTrait::OneResult, ::mlir::OpTrait::ZeroSuccessor, ::mlir::OpTrait::OneOperand> {
+public:
+  using Op::Op;
+  using Adaptor = TransposeOpAdaptor;
+  static ::llvm::StringRef getOperationName();
+  std::pair<unsigned, unsigned> getODSOperandIndexAndLength(unsigned index);
+  ::mlir::Operation::operand_range getODSOperands(unsigned index);
+  ::mlir::Value input();
+  ::mlir::MutableOperandRange inputMutable();
+  std::pair<unsigned, unsigned> getODSResultIndexAndLength(unsigned index);
+  ::mlir::Operation::result_range getODSResults(unsigned index);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, Value input);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type resultType0, ::mlir::Value input);
   static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value input);
   static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
   ::mlir::LogicalResult verify();

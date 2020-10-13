@@ -10,7 +10,11 @@
 #undef GET_OP_LIST
 
 ::mlir::tolva::ConstantOp,
-::mlir::tolva::PrintOp
+::mlir::tolva::GenericCallOp,
+::mlir::tolva::PrintOp,
+::mlir::tolva::ReshapeOp,
+::mlir::tolva::ReturnOp,
+::mlir::tolva::TransposeOp
 #endif  // GET_OP_LIST
 
 #ifdef GET_OP_CLASSES
@@ -156,6 +160,235 @@ namespace mlir {
 namespace tolva {
 
 //===----------------------------------------------------------------------===//
+// ::mlir::tolva::GenericCallOp definitions
+//===----------------------------------------------------------------------===//
+
+GenericCallOpAdaptor::GenericCallOpAdaptor(::mlir::ValueRange values, ::mlir::DictionaryAttr attrs)  : odsOperands(values), odsAttrs(attrs) {
+
+}
+
+GenericCallOpAdaptor::GenericCallOpAdaptor(GenericCallOp&op)  : odsOperands(op.getOperation()->getOperands()), odsAttrs(op.getOperation()->getAttrDictionary()) {
+
+}
+
+std::pair<unsigned, unsigned> GenericCallOpAdaptor::getODSOperandIndexAndLength(unsigned index) {
+  bool isVariadic[] = {true};
+  int prevVariadicCount = 0;
+  for (unsigned i = 0; i < index; ++i)
+    if (isVariadic[i]) ++prevVariadicCount;
+
+  // Calculate how many dynamic values a static variadic operand corresponds to.
+  // This assumes all static variadic operands have the same dynamic value count.
+  int variadicSize = (odsOperands.size() - 0) / 1;
+  // `index` passed in as the parameter is the static index which counts each
+  // operand (variadic or not) as size 1. So here for each previous static variadic
+  // operand, we need to offset by (variadicSize - 1) to get where the dynamic
+  // value pack for this static operand starts.
+  int start = index + (variadicSize - 1) * prevVariadicCount;
+  int size = isVariadic[index] ? variadicSize : 1;
+  return {start, size};
+}
+
+::mlir::ValueRange GenericCallOpAdaptor::getODSOperands(unsigned index) {
+  auto valueRange = getODSOperandIndexAndLength(index);
+  return {std::next(odsOperands.begin(), valueRange.first),
+           std::next(odsOperands.begin(), valueRange.first + valueRange.second)};
+}
+
+::mlir::ValueRange GenericCallOpAdaptor::inputs() {
+  return getODSOperands(0);
+}
+
+::mlir::FlatSymbolRefAttr GenericCallOpAdaptor::callee() {
+  assert(odsAttrs && "no attributes when constructing adapter");
+  ::mlir::FlatSymbolRefAttr attr = odsAttrs.get("callee").cast<::mlir::FlatSymbolRefAttr>();
+  return attr;
+}
+
+::mlir::LogicalResult GenericCallOpAdaptor::verify(::mlir::Location loc) {
+  {
+  auto tblgen_callee = odsAttrs.get("callee");
+  if (!tblgen_callee) return emitError(loc, "'tolva.generic_call' op ""requires attribute 'callee'");
+    if (!((tblgen_callee.isa<::mlir::FlatSymbolRefAttr>()))) return emitError(loc, "'tolva.generic_call' op ""attribute 'callee' failed to satisfy constraint: flat symbol reference attribute");
+  }
+  return ::mlir::success();
+}
+
+::llvm::StringRef GenericCallOp::getOperationName() {
+  return "tolva.generic_call";
+}
+
+std::pair<unsigned, unsigned> GenericCallOp::getODSOperandIndexAndLength(unsigned index) {
+  bool isVariadic[] = {true};
+  int prevVariadicCount = 0;
+  for (unsigned i = 0; i < index; ++i)
+    if (isVariadic[i]) ++prevVariadicCount;
+
+  // Calculate how many dynamic values a static variadic operand corresponds to.
+  // This assumes all static variadic operands have the same dynamic value count.
+  int variadicSize = (getOperation()->getNumOperands() - 0) / 1;
+  // `index` passed in as the parameter is the static index which counts each
+  // operand (variadic or not) as size 1. So here for each previous static variadic
+  // operand, we need to offset by (variadicSize - 1) to get where the dynamic
+  // value pack for this static operand starts.
+  int start = index + (variadicSize - 1) * prevVariadicCount;
+  int size = isVariadic[index] ? variadicSize : 1;
+  return {start, size};
+}
+
+::mlir::Operation::operand_range GenericCallOp::getODSOperands(unsigned index) {
+  auto valueRange = getODSOperandIndexAndLength(index);
+  return {std::next(getOperation()->operand_begin(), valueRange.first),
+           std::next(getOperation()->operand_begin(), valueRange.first + valueRange.second)};
+}
+
+::mlir::Operation::operand_range GenericCallOp::inputs() {
+  return getODSOperands(0);
+}
+
+::mlir::MutableOperandRange GenericCallOp::inputsMutable() {
+  auto range = getODSOperandIndexAndLength(0);
+  return ::mlir::MutableOperandRange(getOperation(), range.first, range.second);
+}
+
+std::pair<unsigned, unsigned> GenericCallOp::getODSResultIndexAndLength(unsigned index) {
+  return {index, 1};
+}
+
+::mlir::Operation::result_range GenericCallOp::getODSResults(unsigned index) {
+  auto valueRange = getODSResultIndexAndLength(index);
+  return {std::next(getOperation()->result_begin(), valueRange.first),
+           std::next(getOperation()->result_begin(), valueRange.first + valueRange.second)};
+}
+
+::mlir::FlatSymbolRefAttr GenericCallOp::calleeAttr() {
+  return this->getAttr("callee").cast<::mlir::FlatSymbolRefAttr>();
+}
+
+::llvm::StringRef GenericCallOp::callee() {
+  auto attr = calleeAttr();
+  return attr.getValue();
+}
+
+void GenericCallOp::calleeAttr(::mlir::FlatSymbolRefAttr attr) {
+  this->getOperation()->setAttr("callee", attr);
+}
+
+
+
+void GenericCallOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type resultType0, ::mlir::FlatSymbolRefAttr callee, ::mlir::ValueRange inputs) {
+  odsState.addOperands(inputs);
+  odsState.addAttribute("callee", callee);
+  odsState.addTypes(resultType0);
+}
+
+void GenericCallOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::FlatSymbolRefAttr callee, ::mlir::ValueRange inputs) {
+  odsState.addOperands(inputs);
+  odsState.addAttribute("callee", callee);
+  assert(resultTypes.size() == 1u && "mismatched number of results");
+  odsState.addTypes(resultTypes);
+}
+
+void GenericCallOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type resultType0, ::llvm::StringRef callee, ::mlir::ValueRange inputs) {
+  odsState.addOperands(inputs);
+  odsState.addAttribute("callee", odsBuilder.getSymbolRefAttr(callee));
+  odsState.addTypes(resultType0);
+}
+
+void GenericCallOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::llvm::StringRef callee, ::mlir::ValueRange inputs) {
+  odsState.addOperands(inputs);
+  odsState.addAttribute("callee", odsBuilder.getSymbolRefAttr(callee));
+  assert(resultTypes.size() == 1u && "mismatched number of results");
+  odsState.addTypes(resultTypes);
+}
+
+void GenericCallOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes) {
+  odsState.addOperands(operands);
+  odsState.addAttributes(attributes);
+  assert(resultTypes.size() == 1u && "mismatched number of return types");
+  odsState.addTypes(resultTypes);
+}
+
+::mlir::LogicalResult GenericCallOp::verify() {
+  if (failed(GenericCallOpAdaptor(*this).verify(this->getLoc()))) return ::mlir::failure();
+  {
+    unsigned index = 0; (void)index;
+    auto valueGroup0 = getODSOperands(0);
+    for (::mlir::Value v : valueGroup0) {
+      (void)v;
+      if (!(((v.getType().isa<::mlir::TensorType>())) && ((v.getType().cast<::mlir::ShapedType>().getElementType().isF64())))) {
+        return emitOpError("operand #") << index << " must be tensor of 64-bit float values, but got " << v.getType();
+      }
+      ++index;
+    }
+  }
+  {
+    unsigned index = 0; (void)index;
+    auto valueGroup0 = getODSResults(0);
+    for (::mlir::Value v : valueGroup0) {
+      (void)v;
+      if (!(((v.getType().isa<::mlir::TensorType>())) && ((v.getType().cast<::mlir::ShapedType>().getElementType().isF64())))) {
+        return emitOpError("result #") << index << " must be tensor of 64-bit float values, but got " << v.getType();
+      }
+      ++index;
+    }
+  }
+  return ::mlir::success();
+}
+
+::mlir::ParseResult GenericCallOp::parse(::mlir::OpAsmParser &parser, ::mlir::OperationState &result) {
+  ::mlir::FlatSymbolRefAttr calleeAttr;
+  ::mlir::SmallVector<::mlir::OpAsmParser::OperandType, 4> inputsOperands;
+  ::llvm::SMLoc inputsOperandsLoc;
+  (void)inputsOperandsLoc;
+  ::llvm::ArrayRef<::mlir::Type> inputsTypes;
+  ::llvm::ArrayRef<::mlir::Type> allResultTypes;
+
+  if (parser.parseAttribute(calleeAttr, parser.getBuilder().getType<::mlir::NoneType>(), "callee", result.attributes))
+    return ::mlir::failure();
+  if (parser.parseLParen())
+    return ::mlir::failure();
+
+  inputsOperandsLoc = parser.getCurrentLocation();
+  if (parser.parseOperandList(inputsOperands))
+    return ::mlir::failure();
+  if (parser.parseRParen())
+    return ::mlir::failure();
+  if (parser.parseOptionalAttrDict(result.attributes))
+    return ::mlir::failure();
+  if (parser.parseColon())
+    return ::mlir::failure();
+
+  ::mlir::FunctionType inputs__allResult_functionType;
+  if (parser.parseType(inputs__allResult_functionType))
+    return ::mlir::failure();
+  inputsTypes = inputs__allResult_functionType.getInputs();
+  allResultTypes = inputs__allResult_functionType.getResults();
+  result.addTypes(allResultTypes);
+  if (parser.resolveOperands(inputsOperands, inputsTypes, inputsOperandsLoc, result.operands))
+    return ::mlir::failure();
+  return ::mlir::success();
+}
+
+void GenericCallOp::print(::mlir::OpAsmPrinter &p) {
+  p << "tolva.generic_call";
+  p << " ";
+  p.printAttributeWithoutType(calleeAttr());
+  p << "(";
+  p << inputs();
+  p << ")";
+  p.printOptionalAttrDict(getAttrs(), /*elidedAttrs=*/{"callee"});
+  p << " " << ":";
+  p << " ";
+  p.printFunctionalType(inputs().getTypes(), getOperation()->getResultTypes());
+}
+
+} // namespace tolva
+} // namespace mlir
+namespace mlir {
+namespace tolva {
+
+//===----------------------------------------------------------------------===//
 // ::mlir::tolva::PrintOp definitions
 //===----------------------------------------------------------------------===//
 
@@ -285,6 +518,499 @@ void PrintOp::print(::mlir::OpAsmPrinter &p) {
   p << " " << ":";
   p << " ";
   p << ::llvm::ArrayRef<::mlir::Type>(input().getType());
+}
+
+} // namespace tolva
+} // namespace mlir
+namespace mlir {
+namespace tolva {
+
+//===----------------------------------------------------------------------===//
+// ::mlir::tolva::ReshapeOp definitions
+//===----------------------------------------------------------------------===//
+
+ReshapeOpAdaptor::ReshapeOpAdaptor(::mlir::ValueRange values, ::mlir::DictionaryAttr attrs)  : odsOperands(values), odsAttrs(attrs) {
+
+}
+
+ReshapeOpAdaptor::ReshapeOpAdaptor(ReshapeOp&op)  : odsOperands(op.getOperation()->getOperands()), odsAttrs(op.getOperation()->getAttrDictionary()) {
+
+}
+
+std::pair<unsigned, unsigned> ReshapeOpAdaptor::getODSOperandIndexAndLength(unsigned index) {
+  return {index, 1};
+}
+
+::mlir::ValueRange ReshapeOpAdaptor::getODSOperands(unsigned index) {
+  auto valueRange = getODSOperandIndexAndLength(index);
+  return {std::next(odsOperands.begin(), valueRange.first),
+           std::next(odsOperands.begin(), valueRange.first + valueRange.second)};
+}
+
+::mlir::Value ReshapeOpAdaptor::input() {
+  return *getODSOperands(0).begin();
+}
+
+::mlir::LogicalResult ReshapeOpAdaptor::verify(::mlir::Location loc) {
+  return ::mlir::success();
+}
+
+::llvm::StringRef ReshapeOp::getOperationName() {
+  return "tolva.reshape";
+}
+
+std::pair<unsigned, unsigned> ReshapeOp::getODSOperandIndexAndLength(unsigned index) {
+  return {index, 1};
+}
+
+::mlir::Operation::operand_range ReshapeOp::getODSOperands(unsigned index) {
+  auto valueRange = getODSOperandIndexAndLength(index);
+  return {std::next(getOperation()->operand_begin(), valueRange.first),
+           std::next(getOperation()->operand_begin(), valueRange.first + valueRange.second)};
+}
+
+::mlir::Value ReshapeOp::input() {
+  return *getODSOperands(0).begin();
+}
+
+::mlir::MutableOperandRange ReshapeOp::inputMutable() {
+  auto range = getODSOperandIndexAndLength(0);
+  return ::mlir::MutableOperandRange(getOperation(), range.first, range.second);
+}
+
+std::pair<unsigned, unsigned> ReshapeOp::getODSResultIndexAndLength(unsigned index) {
+  return {index, 1};
+}
+
+::mlir::Operation::result_range ReshapeOp::getODSResults(unsigned index) {
+  auto valueRange = getODSResultIndexAndLength(index);
+  return {std::next(getOperation()->result_begin(), valueRange.first),
+           std::next(getOperation()->result_begin(), valueRange.first + valueRange.second)};
+}
+
+void ReshapeOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type resultType0, ::mlir::Value input) {
+  odsState.addOperands(input);
+  odsState.addTypes(resultType0);
+}
+
+void ReshapeOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value input) {
+  odsState.addOperands(input);
+  assert(resultTypes.size() == 1u && "mismatched number of results");
+  odsState.addTypes(resultTypes);
+}
+
+void ReshapeOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes) {
+  assert(operands.size() == 1u && "mismatched number of parameters");
+  odsState.addOperands(operands);
+  odsState.addAttributes(attributes);
+  assert(resultTypes.size() == 1u && "mismatched number of return types");
+  odsState.addTypes(resultTypes);
+}
+
+::mlir::LogicalResult ReshapeOp::verify() {
+  if (failed(ReshapeOpAdaptor(*this).verify(this->getLoc()))) return ::mlir::failure();
+  {
+    unsigned index = 0; (void)index;
+    auto valueGroup0 = getODSOperands(0);
+    for (::mlir::Value v : valueGroup0) {
+      (void)v;
+      if (!(((v.getType().isa<::mlir::TensorType>())) && ((v.getType().cast<::mlir::ShapedType>().getElementType().isF64())))) {
+        return emitOpError("operand #") << index << " must be tensor of 64-bit float values, but got " << v.getType();
+      }
+      ++index;
+    }
+  }
+  {
+    unsigned index = 0; (void)index;
+    auto valueGroup0 = getODSResults(0);
+    for (::mlir::Value v : valueGroup0) {
+      (void)v;
+      if (!((((v.getType().isa<::mlir::TensorType>())) && ((v.getType().cast<::mlir::ShapedType>().getElementType().isF64()))) && ((v.getType().cast<::mlir::ShapedType>().hasStaticShape())))) {
+        return emitOpError("result #") << index << " must be statically shaped tensor of 64-bit float values, but got " << v.getType();
+      }
+      ++index;
+    }
+  }
+  return ::mlir::success();
+}
+
+::mlir::ParseResult ReshapeOp::parse(::mlir::OpAsmParser &parser, ::mlir::OperationState &result) {
+  ::mlir::OpAsmParser::OperandType inputRawOperands[1];
+  ::llvm::ArrayRef<::mlir::OpAsmParser::OperandType> inputOperands(inputRawOperands);  ::llvm::SMLoc inputOperandsLoc;
+  (void)inputOperandsLoc;
+  ::mlir::Type inputRawTypes[1];
+  ::llvm::ArrayRef<::mlir::Type> inputTypes(inputRawTypes);
+  ::mlir::SmallVector<::mlir::Type, 1> allResultTypes;
+  if (parser.parseLParen())
+    return ::mlir::failure();
+
+  inputOperandsLoc = parser.getCurrentLocation();
+  if (parser.parseOperand(inputRawOperands[0]))
+    return ::mlir::failure();
+  if (parser.parseColon())
+    return ::mlir::failure();
+
+  if (parser.parseType(inputRawTypes[0]))
+    return ::mlir::failure();
+  if (parser.parseRParen())
+    return ::mlir::failure();
+  if (parser.parseOptionalAttrDict(result.attributes))
+    return ::mlir::failure();
+  if (parser.parseKeyword("to"))
+    return ::mlir::failure();
+
+  if (parser.parseTypeList(allResultTypes))
+    return ::mlir::failure();
+  result.addTypes(allResultTypes);
+  if (parser.resolveOperands(inputOperands, inputTypes, inputOperandsLoc, result.operands))
+    return ::mlir::failure();
+  return ::mlir::success();
+}
+
+void ReshapeOp::print(::mlir::OpAsmPrinter &p) {
+  p << "tolva.reshape";
+  p << "(";
+  p << input();
+  p << " " << ":";
+  p << " ";
+  p << ::llvm::ArrayRef<::mlir::Type>(input().getType());
+  p << ")";
+  p.printOptionalAttrDict(getAttrs(), /*elidedAttrs=*/{});
+  p << " " << "to";
+  p << " ";
+  p << getOperation()->getResultTypes();
+}
+
+} // namespace tolva
+} // namespace mlir
+namespace mlir {
+namespace tolva {
+
+//===----------------------------------------------------------------------===//
+// ::mlir::tolva::ReturnOp definitions
+//===----------------------------------------------------------------------===//
+
+ReturnOpAdaptor::ReturnOpAdaptor(::mlir::ValueRange values, ::mlir::DictionaryAttr attrs)  : odsOperands(values), odsAttrs(attrs) {
+
+}
+
+ReturnOpAdaptor::ReturnOpAdaptor(ReturnOp&op)  : odsOperands(op.getOperation()->getOperands()), odsAttrs(op.getOperation()->getAttrDictionary()) {
+
+}
+
+std::pair<unsigned, unsigned> ReturnOpAdaptor::getODSOperandIndexAndLength(unsigned index) {
+  bool isVariadic[] = {true};
+  int prevVariadicCount = 0;
+  for (unsigned i = 0; i < index; ++i)
+    if (isVariadic[i]) ++prevVariadicCount;
+
+  // Calculate how many dynamic values a static variadic operand corresponds to.
+  // This assumes all static variadic operands have the same dynamic value count.
+  int variadicSize = (odsOperands.size() - 0) / 1;
+  // `index` passed in as the parameter is the static index which counts each
+  // operand (variadic or not) as size 1. So here for each previous static variadic
+  // operand, we need to offset by (variadicSize - 1) to get where the dynamic
+  // value pack for this static operand starts.
+  int start = index + (variadicSize - 1) * prevVariadicCount;
+  int size = isVariadic[index] ? variadicSize : 1;
+  return {start, size};
+}
+
+::mlir::ValueRange ReturnOpAdaptor::getODSOperands(unsigned index) {
+  auto valueRange = getODSOperandIndexAndLength(index);
+  return {std::next(odsOperands.begin(), valueRange.first),
+           std::next(odsOperands.begin(), valueRange.first + valueRange.second)};
+}
+
+::mlir::ValueRange ReturnOpAdaptor::input() {
+  return getODSOperands(0);
+}
+
+::mlir::LogicalResult ReturnOpAdaptor::verify(::mlir::Location loc) {
+  return ::mlir::success();
+}
+
+::llvm::StringRef ReturnOp::getOperationName() {
+  return "tolva.return";
+}
+
+std::pair<unsigned, unsigned> ReturnOp::getODSOperandIndexAndLength(unsigned index) {
+  bool isVariadic[] = {true};
+  int prevVariadicCount = 0;
+  for (unsigned i = 0; i < index; ++i)
+    if (isVariadic[i]) ++prevVariadicCount;
+
+  // Calculate how many dynamic values a static variadic operand corresponds to.
+  // This assumes all static variadic operands have the same dynamic value count.
+  int variadicSize = (getOperation()->getNumOperands() - 0) / 1;
+  // `index` passed in as the parameter is the static index which counts each
+  // operand (variadic or not) as size 1. So here for each previous static variadic
+  // operand, we need to offset by (variadicSize - 1) to get where the dynamic
+  // value pack for this static operand starts.
+  int start = index + (variadicSize - 1) * prevVariadicCount;
+  int size = isVariadic[index] ? variadicSize : 1;
+  return {start, size};
+}
+
+::mlir::Operation::operand_range ReturnOp::getODSOperands(unsigned index) {
+  auto valueRange = getODSOperandIndexAndLength(index);
+  return {std::next(getOperation()->operand_begin(), valueRange.first),
+           std::next(getOperation()->operand_begin(), valueRange.first + valueRange.second)};
+}
+
+::mlir::Operation::operand_range ReturnOp::input() {
+  return getODSOperands(0);
+}
+
+::mlir::MutableOperandRange ReturnOp::inputMutable() {
+  auto range = getODSOperandIndexAndLength(0);
+  return ::mlir::MutableOperandRange(getOperation(), range.first, range.second);
+}
+
+std::pair<unsigned, unsigned> ReturnOp::getODSResultIndexAndLength(unsigned index) {
+  return {index, 1};
+}
+
+::mlir::Operation::result_range ReturnOp::getODSResults(unsigned index) {
+  auto valueRange = getODSResultIndexAndLength(index);
+  return {std::next(getOperation()->result_begin(), valueRange.first),
+           std::next(getOperation()->result_begin(), valueRange.first + valueRange.second)};
+}
+
+void ReturnOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState) {
+ build(odsBuilder, odsState, llvm::None); 
+}
+
+void ReturnOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::ValueRange input) {
+  odsState.addOperands(input);
+}
+
+void ReturnOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes) {
+  odsState.addOperands(operands);
+  odsState.addAttributes(attributes);
+  assert(resultTypes.size() == 0u && "mismatched number of return types");
+  odsState.addTypes(resultTypes);
+}
+
+::mlir::LogicalResult ReturnOp::verify() {
+  if (failed(ReturnOpAdaptor(*this).verify(this->getLoc()))) return ::mlir::failure();
+  {
+    unsigned index = 0; (void)index;
+    auto valueGroup0 = getODSOperands(0);
+    for (::mlir::Value v : valueGroup0) {
+      (void)v;
+      if (!(((v.getType().isa<::mlir::TensorType>())) && ((v.getType().cast<::mlir::ShapedType>().getElementType().isF64())))) {
+        return emitOpError("operand #") << index << " must be tensor of 64-bit float values, but got " << v.getType();
+      }
+      ++index;
+    }
+  }
+  {
+    unsigned index = 0; (void)index;
+  }
+  return ::verify(*this);
+}
+
+::mlir::ParseResult ReturnOp::parse(::mlir::OpAsmParser &parser, ::mlir::OperationState &result) {
+  ::mlir::SmallVector<::mlir::OpAsmParser::OperandType, 4> inputOperands;
+  ::llvm::SMLoc inputOperandsLoc;
+  (void)inputOperandsLoc;
+  ::mlir::SmallVector<::mlir::Type, 1> inputTypes;
+
+  inputOperandsLoc = parser.getCurrentLocation();
+  if (parser.parseOperandList(inputOperands))
+    return ::mlir::failure();
+  if (!inputOperands.empty()) {
+  if (parser.parseColon())
+    return ::mlir::failure();
+
+  if (parser.parseTypeList(inputTypes))
+    return ::mlir::failure();
+  }
+  if (parser.parseOptionalAttrDict(result.attributes))
+    return ::mlir::failure();
+  if (parser.resolveOperands(inputOperands, inputTypes, inputOperandsLoc, result.operands))
+    return ::mlir::failure();
+  return ::mlir::success();
+}
+
+void ReturnOp::print(::mlir::OpAsmPrinter &p) {
+  p << "tolva.return";
+  if (!input().empty()) {
+  p << " ";
+  p << input();
+  p << " " << ":";
+  p << " ";
+  p << input().getTypes();
+  }
+  p.printOptionalAttrDict(getAttrs(), /*elidedAttrs=*/{});
+}
+
+void ReturnOp::getEffects(::mlir::SmallVectorImpl<::mlir::SideEffects::EffectInstance<::mlir::MemoryEffects::Effect>> &effects) {
+
+}
+
+} // namespace tolva
+} // namespace mlir
+namespace mlir {
+namespace tolva {
+
+//===----------------------------------------------------------------------===//
+// ::mlir::tolva::TransposeOp definitions
+//===----------------------------------------------------------------------===//
+
+TransposeOpAdaptor::TransposeOpAdaptor(::mlir::ValueRange values, ::mlir::DictionaryAttr attrs)  : odsOperands(values), odsAttrs(attrs) {
+
+}
+
+TransposeOpAdaptor::TransposeOpAdaptor(TransposeOp&op)  : odsOperands(op.getOperation()->getOperands()), odsAttrs(op.getOperation()->getAttrDictionary()) {
+
+}
+
+std::pair<unsigned, unsigned> TransposeOpAdaptor::getODSOperandIndexAndLength(unsigned index) {
+  return {index, 1};
+}
+
+::mlir::ValueRange TransposeOpAdaptor::getODSOperands(unsigned index) {
+  auto valueRange = getODSOperandIndexAndLength(index);
+  return {std::next(odsOperands.begin(), valueRange.first),
+           std::next(odsOperands.begin(), valueRange.first + valueRange.second)};
+}
+
+::mlir::Value TransposeOpAdaptor::input() {
+  return *getODSOperands(0).begin();
+}
+
+::mlir::LogicalResult TransposeOpAdaptor::verify(::mlir::Location loc) {
+  return ::mlir::success();
+}
+
+::llvm::StringRef TransposeOp::getOperationName() {
+  return "tolva.transpose";
+}
+
+std::pair<unsigned, unsigned> TransposeOp::getODSOperandIndexAndLength(unsigned index) {
+  return {index, 1};
+}
+
+::mlir::Operation::operand_range TransposeOp::getODSOperands(unsigned index) {
+  auto valueRange = getODSOperandIndexAndLength(index);
+  return {std::next(getOperation()->operand_begin(), valueRange.first),
+           std::next(getOperation()->operand_begin(), valueRange.first + valueRange.second)};
+}
+
+::mlir::Value TransposeOp::input() {
+  return *getODSOperands(0).begin();
+}
+
+::mlir::MutableOperandRange TransposeOp::inputMutable() {
+  auto range = getODSOperandIndexAndLength(0);
+  return ::mlir::MutableOperandRange(getOperation(), range.first, range.second);
+}
+
+std::pair<unsigned, unsigned> TransposeOp::getODSResultIndexAndLength(unsigned index) {
+  return {index, 1};
+}
+
+::mlir::Operation::result_range TransposeOp::getODSResults(unsigned index) {
+  auto valueRange = getODSResultIndexAndLength(index);
+  return {std::next(getOperation()->result_begin(), valueRange.first),
+           std::next(getOperation()->result_begin(), valueRange.first + valueRange.second)};
+}
+
+
+
+void TransposeOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type resultType0, ::mlir::Value input) {
+  odsState.addOperands(input);
+  odsState.addTypes(resultType0);
+}
+
+void TransposeOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value input) {
+  odsState.addOperands(input);
+  assert(resultTypes.size() == 1u && "mismatched number of results");
+  odsState.addTypes(resultTypes);
+}
+
+void TransposeOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes) {
+  assert(operands.size() == 1u && "mismatched number of parameters");
+  odsState.addOperands(operands);
+  odsState.addAttributes(attributes);
+  assert(resultTypes.size() == 1u && "mismatched number of return types");
+  odsState.addTypes(resultTypes);
+}
+
+::mlir::LogicalResult TransposeOp::verify() {
+  if (failed(TransposeOpAdaptor(*this).verify(this->getLoc()))) return ::mlir::failure();
+  {
+    unsigned index = 0; (void)index;
+    auto valueGroup0 = getODSOperands(0);
+    for (::mlir::Value v : valueGroup0) {
+      (void)v;
+      if (!(((v.getType().isa<::mlir::TensorType>())) && ((v.getType().cast<::mlir::ShapedType>().getElementType().isF64())))) {
+        return emitOpError("operand #") << index << " must be tensor of 64-bit float values, but got " << v.getType();
+      }
+      ++index;
+    }
+  }
+  {
+    unsigned index = 0; (void)index;
+    auto valueGroup0 = getODSResults(0);
+    for (::mlir::Value v : valueGroup0) {
+      (void)v;
+      if (!(((v.getType().isa<::mlir::TensorType>())) && ((v.getType().cast<::mlir::ShapedType>().getElementType().isF64())))) {
+        return emitOpError("result #") << index << " must be tensor of 64-bit float values, but got " << v.getType();
+      }
+      ++index;
+    }
+  }
+  return ::verify(*this);
+}
+
+::mlir::ParseResult TransposeOp::parse(::mlir::OpAsmParser &parser, ::mlir::OperationState &result) {
+  ::mlir::OpAsmParser::OperandType inputRawOperands[1];
+  ::llvm::ArrayRef<::mlir::OpAsmParser::OperandType> inputOperands(inputRawOperands);  ::llvm::SMLoc inputOperandsLoc;
+  (void)inputOperandsLoc;
+  ::mlir::Type inputRawTypes[1];
+  ::llvm::ArrayRef<::mlir::Type> inputTypes(inputRawTypes);
+  ::mlir::SmallVector<::mlir::Type, 1> allResultTypes;
+  if (parser.parseLParen())
+    return ::mlir::failure();
+
+  inputOperandsLoc = parser.getCurrentLocation();
+  if (parser.parseOperand(inputRawOperands[0]))
+    return ::mlir::failure();
+  if (parser.parseColon())
+    return ::mlir::failure();
+
+  if (parser.parseType(inputRawTypes[0]))
+    return ::mlir::failure();
+  if (parser.parseRParen())
+    return ::mlir::failure();
+  if (parser.parseOptionalAttrDict(result.attributes))
+    return ::mlir::failure();
+  if (parser.parseKeyword("to"))
+    return ::mlir::failure();
+
+  if (parser.parseTypeList(allResultTypes))
+    return ::mlir::failure();
+  result.addTypes(allResultTypes);
+  if (parser.resolveOperands(inputOperands, inputTypes, inputOperandsLoc, result.operands))
+    return ::mlir::failure();
+  return ::mlir::success();
+}
+
+void TransposeOp::print(::mlir::OpAsmPrinter &p) {
+  p << "tolva.transpose";
+  p << "(";
+  p << input();
+  p << " " << ":";
+  p << " ";
+  p << ::llvm::ArrayRef<::mlir::Type>(input().getType());
+  p << ")";
+  p.printOptionalAttrDict(getAttrs(), /*elidedAttrs=*/{});
+  p << " " << "to";
+  p << " ";
+  p << getOperation()->getResultTypes();
 }
 
 } // namespace tolva

@@ -14,9 +14,11 @@ namespace mlir {
 } // namespace mlir
 
 namespace es2 {
-  struct TlvModule_ast;
+  struct Module_ast;
 
+  std::unique_ptr<Module_ast> astGenModule();
   /// Emit IR for the given Toy moduleAST, returns a newly created MLIR module
   /// or nullptr on failure.
-  mlir::OwningModuleRef mlirGen(mlir::MLIRContext& context, TlvModule_ast& moduleAST);
+  mlir::OwningModuleRef mlirGen(mlir::MLIRContext& context, Module_ast& moduleAST);
+  int dumpTLVIR();
 } // namespace toy

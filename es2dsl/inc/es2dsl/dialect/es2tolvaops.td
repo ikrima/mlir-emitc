@@ -2,6 +2,7 @@
 #define TOLVA_DIALECT_TOLVA_OPS
 
 include "es2dsl/dialect/es2tolvabase.td"
+include "mlir/IR/OpBase.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 
 //===----------------------------------------------------------------------===//
@@ -21,7 +22,7 @@ class Tolva_Op<string mnemonic, list<OpTrait> traits = []> :
 // Executable ABI
 //===----------------------------------------------------------------------===//
 
-// We define a toy operation by inheriting from our base 'Toy_Op' class above.
+// We define a toy operation by inheriting from our base 'Tolva_Op' class above.
 // Here we provide the mnemonic and a list of traits for the operation. The
 // constant operation is marked as 'NoSideEffect' as it is a pure operation
 // and may be removed if dead.
@@ -67,6 +68,43 @@ def ConstantOp : Tolva_Op<"constant", [NoSideEffect]> {
 }
 
 
+
+def GenericCallOp : Tolva_Op<"generic_call"> {
+  let summary = "generic call operation";
+  let description = [{
+    Generic calls represent calls to a user defined function that needs to
+    be specialized for the shape of its arguments. The callee name is attached
+    as a symbol reference via an attribute. The arguments list must match the
+    arguments expected by the callee. For example:
+
+    ```mlir
+     %4 = toy.generic_call @my_func(%1, %3)
+           : (tensor<2x3xf64>, tensor<2x3xf64>) -> tensor<*xf64>
+    ```
+
+    This is only valid if a function named "my_func" exists and takes two
+    arguments.
+  }];
+
+  // The generic call operation takes a symbol reference attribute as the
+  // callee, and inputs for the call.
+  let arguments = (ins FlatSymbolRefAttr:$callee, Variadic<F64Tensor>:$inputs);
+
+  // The generic call operation returns a single value of TensorType.
+  let results = (outs F64Tensor);
+
+  // Specialize assembly printing and parsing using a declarative format.
+  let assemblyFormat = [{
+    $callee `(` $inputs `)` attr-dict `:` functional-type($inputs, results)
+  }];
+
+  // Add custom build methods for the generic call operation.
+  let builders = [
+    OpBuilder<"StringRef callee, ArrayRef<Value> arguments">
+  ];
+}
+
+
 def PrintOp : Tolva_Op<"print"> {
   let arguments = (ins F64Tensor:$input);
 
@@ -75,5 +113,84 @@ def PrintOp : Tolva_Op<"print"> {
   // variable represectively.
   let assemblyFormat = "$input attr-dict `:` type($input)";
 }
+
+def ReshapeOp : Tolva_Op<"reshape"> {
+  let summary = "tensor reshape operation";
+  let description = [{
+    Reshape operation is transforming its input tensor into a new tensor with
+    the same number of elements but different shapes. For example:
+
+    ```mlir
+       %0 = toy.reshape (%arg1 : tensor<10xf64>) to tensor<5x2xf64>
+    ```
+  }];
+
+  let arguments = (ins F64Tensor:$input);
+
+  // We expect that the reshape operation returns a statically shaped tensor.
+  let results = (outs StaticShapeTensorOf<[F64]>);
+
+  let assemblyFormat = [{
+    `(` $input `:` type($input) `)` attr-dict `to` type(results)
+  }];
+}
+
+def ReturnOp : Tolva_Op<"return", [NoSideEffect, HasParent<"FuncOp">,
+                                 Terminator]> {
+  let summary = "return operation";
+  let description = [{
+    The "return" operation represents a return operation within a function.
+    The operation takes an optional tensor operand and produces no results.
+    The operand type must match the signature of the function that contains
+    the operation. For example:
+
+    ```mlir
+      func @foo() -> tensor<2xf64> {
+        ...
+        toy.return %0 : tensor<2xf64>
+      }
+    ```
+  }];
+
+  // The return operation takes an optional input operand to return. This
+  // value must match the return type of the enclosing function.
+  let arguments = (ins Variadic<F64Tensor>:$input);
+
+  // The return operation only emits the input in the format if it is present.
+  let assemblyFormat = "($input^ `:` type($input))? attr-dict ";
+
+  // Allow building a ReturnOp with no return operand.
+  let builders = [
+    OpBuilder<"", [{ build($_builder, $_state, llvm::None); }]>
+  ];
+
+  // Provide extra utility definitions on the c++ operation class definition.
+  let extraClassDeclaration = [{
+    bool hasOperand() { return getNumOperands() != 0; }
+  }];
+
+  // Invoke a static verify method to verify this return operation.
+  let verifier = [{ return ::verify(*this); }];
+}
+
+def TransposeOp : Tolva_Op<"transpose"> {
+  let summary = "transpose operation";
+
+  let arguments = (ins F64Tensor:$input);
+  let results = (outs F64Tensor);
+
+  let assemblyFormat = [{
+    `(` $input `:` type($input) `)` attr-dict `to` type(results)
+  }];
+
+  // Allow building a TransposeOp with from the input operand.
+  let builders = [
+    OpBuilder<"Value input">
+  ];
+
+  // Invoke a static verify method to verify this transpose operation.
+  let verifier = [{ return ::verify(*this); }];
+}
+
 
 #endif  // TOLVA_DIALECT_TOLVA_OPS

@@ -27,6 +27,8 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
+#include "inc/es2dsl/subsys/es2tlvast.h"
+#include "inc/es2dsl/subsys/es2mlirsubsys.h"
 
 using namespace toy;
 namespace cl = llvm::cl;
@@ -127,6 +129,9 @@ int main(int argc, char **argv) {
   mlir::registerMLIRContextCLOptions();
   cl::ParseCommandLineOptions(argc, argv, "toy compiler\n");
 
+  {
+    es2::dumpTLVIR();
+  }
   switch (emitAction) {
   case Action::DumpAST:
     return dumpAST();

@@ -12,12 +12,12 @@
 #include "mlir/IR/Module.h"
 #include "mlir/IR/StandardTypes.h"
 #include "mlir/IR/Verifier.h"
+#include "mlir/Support/LogicalResult.h"
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopedHashTable.h"
 #include "llvm/Support/raw_ostream.h"
 #include <numeric>
-
 
 using llvm::ArrayRef;
 using llvm::cast;
@@ -35,135 +35,97 @@ using namespace mlir::tolva;
 namespace es2 {
 
 struct TLVIRGenImpl {
-  TLVIRGenImpl(mlir::MLIRContext &context) : mlirOpbldr(&context) {}
-
-  /// Public API: convert the AST for a Toy module (source file) to an MLIR
-  /// Module operation.
-  mlir::ModuleOp mlirGen(TlvModule_ast &moduleAST) {
-    // We create an empty MLIR module and codegen functions one at a time and
-    // add them to the module.
-    mlirMdl = mlir::ModuleOp::create(mlirOpbldr.getUnknownLoc());
-
-    //for (Func_ast &F : moduleAST) {
-    //  auto func = mlirGen(F);
-    //  if (!func)
-    //    return nullptr;
-    //  mlirMdl.push_back(func);
-    //}
-
-    //// Verify the module after we have finished constructing it, this will check
-    //// the structural properties of the IR and invoke any specific verifiers we
-    //// have on the Toy operations.
-    //if (failed(mlir::verify(mlirMdl))) {
-    //  mlirMdl.emitError("module verification error");
-    //  return nullptr;
-    //}
-
-    return mlirMdl;
-  }
 
   /// A "module" matches a Toy source file: containing a list of functions.
   mlir::ModuleOp mlirMdl;
 
-  /// The builder is a helper class to create IR inside a function. The builder
-  /// is stateful, in particular it keeps an "insertion point": this is where
-  /// the next operations will be introduced.
+  /// The mlirOpbldr is a helper class to create IR inside a function. The
+  /// mlirOpbldr is stateful, in particular it keeps an "insertion point": this
+  /// is where the next operations will be introduced.
   mlir::OpBuilder mlirOpbldr;
-};
-
-} // namespace es2
-
-mlir::OwningModuleRef mlirGen(mlir::MLIRContext &context,
-                              TlvModule_ast &moduleAST) {
-  return TLVIRGenImpl(context).mlirGen(moduleAST);
-}
-#if 0
-namespace {
-
-/// Implementation of a simple MLIR emission from the Toy AST.
-///
-/// This will emit operations that are specific to the Toy language, preserving
-/// the semantics of the language and (hopefully) allow to perform accurate
-/// analysis and transformation based on these high level semantics.
-class MLIRGenImpl {
-public:
-  MLIRGenImpl(mlir::MLIRContext &context) : builder(&context) {}
-
-  /// Public API: convert the AST for a Toy module (source file) to an MLIR
-  /// Module operation.
-  mlir::ModuleOp mlirGen(ModuleAST &moduleAST) {
-    // We create an empty MLIR module and codegen functions one at a time and
-    // add them to the module.
-    theModule = mlir::ModuleOp::create(builder.getUnknownLoc());
-
-    for (Func_ast &F : moduleAST) {
-      auto func = mlirGen(F);
-      if (!func)
-        return nullptr;
-      theModule.push_back(func);
-    }
-
-    // Verify the module after we have finished constructing it, this will check
-    // the structural properties of the IR and invoke any specific verifiers we
-    // have on the Toy operations.
-    if (failed(mlir::verify(theModule))) {
-      theModule.emitError("module verification error");
-      return nullptr;
-    }
-
-    return theModule;
-  }
-
-private:
-  /// A "module" matches a Toy source file: containing a list of functions.
-  mlir::ModuleOp theModule;
-
-  /// The builder is a helper class to create IR inside a function. The builder
-  /// is stateful, in particular it keeps an "insertion point": this is where
-  /// the next operations will be introduced.
-  mlir::OpBuilder builder;
 
   /// The symbol table maps a variable name to a value in the current scope.
   /// Entering a function creates a new scope, and the function arguments are
   /// added to the mapping. When the processing of a function is terminated, the
   /// scope is destroyed and the mappings created in this scope are dropped.
-  llvm::ScopedHashTable<StringRef, mlir::Value> symbolTable;
+  llvm::ScopedHashTable<StringRef, mlir::Value> mlirSymTbl;
 
-  /// Helper conversion for a Toy AST location to an MLIR location.
-  mlir::SrcLoc_t loc(SrcLoc_t loc) {
-    return builder.getFileLineColLoc(builder.getIdentifier(*loc.file), loc.line,
-                                     loc.col);
+  TLVIRGenImpl(mlir::MLIRContext &context) : mlirOpbldr(&context) {}
+
+  /// Public API: convert the AST for a Toy module (source file) to an MLIR
+  /// Module operation.
+  mlir::ModuleOp mlirGen(Module_ast &moduleAST) {
+    // We create an empty MLIR module and codegen functions one at a time and
+    // add them to the module.
+    mlirMdl = mlir::ModuleOp::create(mlirOpbldr.getUnknownLoc());
+
+     for (Func_ast &F : moduleAST) {
+      auto func = mlirGen_func(F);
+      if (!func)
+        return nullptr;
+      mlirMdl.push_back(func);
+    }
+
+    // Verify the module after we have finished constructing it, this will
+    // check / the structural properties of the IR and invoke any specific
+    // verifiers we / have on the Toy operations.
+     if (failed(mlir::verify(mlirMdl))) {
+      mlirMdl.emitError("module verification error");
+      return nullptr;
+    }
+
+    return mlirMdl;
   }
 
+  /// Helper conversion for a Toy AST location to an MLIR location.
+  mlir::Location loc(SrcLoc_t loc) {
+    return mlirOpbldr.getFileLineColLoc(mlirOpbldr.getIdentifier(*loc.file),
+                                        loc.line, loc.col);
+  }
   /// Declare a variable in the current scope, return success if the variable
   /// wasn't declared yet.
   mlir::LogicalResult declare(llvm::StringRef var, mlir::Value value) {
-    if (symbolTable.count(var))
+    if (mlirSymTbl.count(var))
       return mlir::failure();
-    symbolTable.insert(var, value);
+    mlirSymTbl.insert(var, value);
     return mlir::success();
   }
 
+  /// Build a tensor type from a list of shape dimensions.
+  mlir::Type getType(ArrayRef<int64_t> shape) {
+    // If the shape is empty, then this type is unranked.
+    if (shape.empty())
+      return mlir::UnrankedTensorType::get(mlirOpbldr.getF64Type());
+
+    // Otherwise, we use the given shape.
+    return mlir::RankedTensorType::get(shape, mlirOpbldr.getF64Type());
+  }
+
+  /// Build an MLIR type from a Toy AST variable type (forward to the generic
+  /// getType above).
+  mlir::Type getType(const VarType &type) { return getType(type.shape); }
+
+#if 1
   /// Create the prototype for an MLIR function with as many arguments as the
   /// provided Toy AST prototype.
-  mlir::FuncOp mlirGen(FnProto_ast &proto) {
+  mlir::FuncOp mlirGen_fnproto(FnProto_ast &proto) {
     auto location = loc(proto.loc());
 
     // This is a generic function, the return type will be inferred later.
     // Arguments type are uniformly unranked tensors.
     llvm::SmallVector<mlir::Type, 4> arg_types(proto.getArgs().size(),
                                                getType(VarType{}));
-    auto func_type = builder.getFunctionType(arg_types, llvm::None);
+    auto func_type = mlirOpbldr.getFunctionType(arg_types, llvm::None);
     return mlir::FuncOp::create(location, proto.getName(), func_type);
   }
 
   /// Emit a new function and add it to the MLIR module.
-  mlir::FuncOp mlirGen(Func_ast &funcAST) {
+  mlir::FuncOp mlirGen_func(Func_ast &_fnast) {
     // Create a scope in the symbol table to hold variable declarations.
-    ScopedHashTableScope<llvm::StringRef, mlir::Value> var_scope(symbolTable);
+    ScopedHashTableScope<llvm::StringRef, mlir::Value> var_scope(mlirSymTbl);
 
     // Create an MLIR function for the given prototype.
-    mlir::FuncOp function(mlirGen(*funcAST.getProto()));
+    mlir::FuncOp function(mlirGen_fnproto(*_fnast.getProto()));
     if (!function)
       return nullptr;
 
@@ -171,23 +133,23 @@ private:
     // In MLIR the entry block of the function is special: it must have the same
     // argument list as the function itself.
     auto &entryBlock = *function.addEntryBlock();
-    auto protoArgs = funcAST.getProto()->getArgs();
+    auto protoArgs = _fnast.getProto()->getArgs();
 
     // Declare all the function arguments in the symbol table.
     for (const auto &name_value :
          llvm::zip(protoArgs, entryBlock.getArguments())) {
-      if (failed(declare(std::get<0>(name_value)->getName(),
-                         std::get<1>(name_value))))
+      if (mlir::failed(declare(std::get<0>(name_value)->getName(),
+                               std::get<1>(name_value))))
         return nullptr;
     }
 
-    // Set the insertion point in the builder to the beginning of the function
-    // body, it will be used throughout the codegen to create operations in this
-    // function.
-    builder.setInsertionPointToStart(&entryBlock);
+    // Set the insertion point in the mlirOpbldr to the beginning of the
+    // function body, it will be used throughout the codegen to create
+    // operations in this function.
+    mlirOpbldr.setInsertionPointToStart(&entryBlock);
 
     // Emit the body of the function.
-    if (mlir::failed(mlirGen(*funcAST.getBody()))) {
+    if (mlir::failed(mlirGen_exprlst(*_fnast.getBody()))) {
       function.erase();
       return nullptr;
     }
@@ -199,77 +161,97 @@ private:
     if (!entryBlock.empty())
       returnOp = dyn_cast<ReturnOp>(entryBlock.back());
     if (!returnOp) {
-      builder.create<ReturnOp>(loc(funcAST.getProto()->loc()));
+      mlirOpbldr.create<ReturnOp>(loc(_fnast.getProto()->loc()));
     } else if (returnOp.hasOperand()) {
       // Otherwise, if this return operation has an operand then add a result to
       // the function.
-      function.setType(builder.getFunctionType(function.getType().getInputs(),
-                                               getType(VarType{})));
+      function.setType(mlirOpbldr.getFunctionType(
+          function.getType().getInputs(), getType(VarType{})));
     }
 
     return function;
   }
 
-  /// Emit a binary operation
-  mlir::Value mlirGen(BinaryExprAST &binop) {
-    // First emit the operations for each side of the operation before emitting
-    // the operation itself. For example if the expression is `a + foo(a)`
-    // 1) First it will visiting the LHS, which will return a reference to the
-    //    value holding `a`. This value should have been emitted at declaration
-    //    time and registered in the symbol table, so nothing would be
-    //    codegen'd. If the value is not in the symbol table, an error has been
-    //    emitted and nullptr is returned.
-    // 2) Then the RHS is visited (recursively) and a call to `foo` is emitted
-    //    and the result value is returned. If an error occurs we get a nullptr
-    //    and propagate.
-    //
-    mlir::Value lhs = mlirGen(*binop.getLHS());
-    if (!lhs)
-      return nullptr;
-    mlir::Value rhs = mlirGen(*binop.getRHS());
-    if (!rhs)
-      return nullptr;
-    auto location = loc(binop.loc());
+  /// Codegen a list of expression, return failure if one of them hit an error.
+  mlir::LogicalResult mlirGen_exprlst(ExprList_ast &blockAST) {
+    ScopedHashTableScope<StringRef, mlir::Value> var_scope(mlirSymTbl);
+    for (auto &expr : blockAST) {
+      // Specific handling for variable declarations, return statement, and
+      // print. These can only appear in block list and not in nested
+      // expressions.
+      if (auto *vardecl = dyn_cast<VarDeclExpr_ast>(expr.get())) {
+        if (!mlirGen_vardecl(*vardecl))
+          return mlir::failure();
+        continue;
+      }
+      if (auto *ret = dyn_cast<RetExpr_ast>(expr.get()))
+        return mlirGen_ret(*ret);
+      if (auto *print = dyn_cast<PrintExprAST>(expr.get())) {
+        if (mlir::failed(mlirGen_print(*print)))
+          return mlir::success();
+        continue;
+      }
 
-    // Derive the operation name from the binary operator. At the moment we only
-    // support '+' and '*'.
-    switch (binop.getOp()) {
-    case '+':
-      return builder.create<AddOp>(location, lhs, rhs);
-    case '*':
-      return builder.create<MulOp>(location, lhs, rhs);
+      // Generic expression dispatch codegen.
+      if (!mlirGen_expr(*expr))
+        return mlir::failure();
     }
-
-    emitError(location, "invalid binary operator '") << binop.getOp() << "'";
-    return nullptr;
+    return mlir::success();
   }
 
-  /// This is a reference to a variable in an expression. The variable is
-  /// expected to have been declared and so should have a value in the symbol
-  /// table, otherwise emit an error and return nullptr.
-  mlir::Value mlirGen(VariableExprAST &expr) {
-    if (auto variable = symbolTable.lookup(expr.getName()))
-      return variable;
+  /// Emit a print expression. It emits specific operations for two builtins:
+  /// transpose(x) and print(x).
+  mlir::LogicalResult mlirGen_print(PrintExprAST &call) {
+    auto arg = mlirGen_expr(*call.getArg());
+    if (!arg)
+      return mlir::failure();
 
-    emitError(loc(expr.loc()), "error: unknown variable '")
-        << expr.getName() << "'";
-    return nullptr;
+    mlirOpbldr.create<PrintOp>(loc(call.loc()), arg);
+    return mlir::success();
+  }
+
+  /// Emit a constant for a single number (FIXME: semantic? broadcast?)
+  mlir::Value mlirGen_num(NumExpr_ast &num) {
+    return mlirOpbldr.create<ConstantOp>(loc(num.loc()), num.getValue());
+  }
+
+  /// Dispatch codegen for the right expression subclass using RTTI.
+  mlir::Value mlirGen_expr(Expr_ast &expr) {
+    switch (expr.getKind()) {
+#if 0
+    case ExprASTKnd::BinOp:
+      return mlirGen(cast<BinaryExprAST>(expr));
+#endif
+    case ExprASTKnd::Var:
+      return mlirGen_var(cast<VarExpr_ast>(expr));
+    case ExprASTKnd::Literal:
+      return mlirGen_lit(cast<LitExpr_ast>(expr));
+    case ExprASTKnd::Call:
+      return mlirGen_call(cast<CallExpr_ast>(expr));
+    case ExprASTKnd::Num:
+      return mlirGen_num(cast<NumExpr_ast>(expr));
+    default:
+      emitError(loc(expr.loc()))
+          << "MLIR codegen encountered an unhandled expr kind '"
+          << Twine((uint8_t)expr.getKind()) << "'";
+      return nullptr;
+    }
   }
 
   /// Emit a return operation. This will return failure if any generation fails.
-  mlir::LogicalResult mlirGen(ReturnExprAST &ret) {
+  mlir::LogicalResult mlirGen_ret(RetExpr_ast &ret) {
     auto location = loc(ret.loc());
 
     // 'return' takes an optional expression, handle that case here.
     mlir::Value expr = nullptr;
     if (ret.getExpr().hasValue()) {
-      if (!(expr = mlirGen(*ret.getExpr().getValue())))
+      if (!(expr = mlirGen_expr(*ret.getExpr().getValue())))
         return mlir::failure();
     }
 
     // Otherwise, this return operation has zero operands.
-    builder.create<ReturnOp>(location, expr ? makeArrayRef(expr)
-                                            : ArrayRef<mlir::Value>());
+    mlirOpbldr.create<ReturnOp>(location, expr ? makeArrayRef(expr)
+                                               : ArrayRef<mlir::Value>());
     return mlir::success();
   }
 
@@ -291,7 +273,7 @@ private:
   ///     [[1.000000e+00, 2.000000e+00, 3.000000e+00],
   ///      [4.000000e+00, 5.000000e+00, 6.000000e+00]]>} : () -> tensor<2x3xf64>
   ///
-  mlir::Value mlirGen(LitExpr_ast &lit) {
+  mlir::Value mlirGen_lit(LitExpr_ast &lit) {
     auto type = getType(lit.getDims());
 
     // The attribute is a vector with a floating point value per element
@@ -303,7 +285,7 @@ private:
 
     // The type of this attribute is tensor of 64-bit floating-point with the
     // shape of the literal.
-    mlir::Type elementType = builder.getF64Type();
+    mlir::Type elementType = mlirOpbldr.getF64Type();
     auto dataType = mlir::RankedTensorType::get(lit.getDims(), elementType);
 
     // This is the actual attribute that holds the list of values for this
@@ -313,7 +295,7 @@ private:
 
     // Build the MLIR op `toy.constant`. This invokes the `ConstantOp::build`
     // method.
-    return builder.create<ConstantOp>(loc(lit.loc()), type, dataAttribute);
+    return mlirOpbldr.create<ConstantOp>(loc(lit.loc()), type, dataAttribute);
   }
 
   /// Recursive helper function to accumulate the data that compose an array
@@ -335,16 +317,58 @@ private:
     data.push_back(cast<NumExpr_ast>(expr).getValue());
   }
 
+  /// Handle a variable declaration, we'll codegen the expression that forms the
+  /// initializer and record the value in the symbol table before returning it.
+  /// Future expressions will be able to reference this variable through symbol
+  /// table lookup.
+  mlir::Value mlirGen_vardecl(VarDeclExpr_ast &vardecl) {
+    auto init = vardecl.getInitVal();
+    if (!init) {
+      emitError(loc(vardecl.loc()),
+                "missing initializer in variable declaration");
+      return nullptr;
+    }
+
+    mlir::Value value = mlirGen_expr(*init);
+    if (!value)
+      return nullptr;
+
+    // We have the initializer value, but in case the variable was declared
+    // with specific shape, we emit a "reshape" operation. It will get
+    // optimized out later as needed.
+    if (!vardecl.getType().shape.empty()) {
+      value = mlirOpbldr.create<ReshapeOp>(loc(vardecl.loc()),
+                                           getType(vardecl.getType()), value);
+    }
+
+    // Register the value in the symbol table.
+    if (failed(declare(vardecl.getName(), value)))
+      return nullptr;
+    return value;
+  }
+
+  /// This is a reference to a variable in an expression. The variable is
+  /// expected to have been declared and so should have a value in the symbol
+  /// table, otherwise emit an error and return nullptr.
+  mlir::Value mlirGen_var(VarExpr_ast &expr) {
+    if (auto variable = mlirSymTbl.lookup(expr.getName()))
+      return variable;
+
+    emitError(loc(expr.loc()), "error: unknown variable '")
+        << expr.getName() << "'";
+    return nullptr;
+  }
+
   /// Emit a call expression. It emits specific operations for the `transpose`
   /// builtin. Other identifiers are assumed to be user-defined functions.
-  mlir::Value mlirGen(CallExpr_ast &call) {
+  mlir::Value mlirGen_call(CallExpr_ast &call) {
     llvm::StringRef callee = call.getCallee();
     auto location = loc(call.loc());
 
     // Codegen the operands first.
     SmallVector<mlir::Value, 4> operands;
     for (auto &expr : call.getArgs()) {
-      auto arg = mlirGen(*expr);
+      auto arg = mlirGen_expr(*expr);
       if (!arg)
         return nullptr;
       operands.push_back(arg);
@@ -358,133 +382,86 @@ private:
                             "does not accept multiple arguments");
         return nullptr;
       }
-      return builder.create<TransposeOp>(location, operands[0]);
+      return mlirOpbldr.create<TransposeOp>(location, operands[0]);
     }
 
     // Otherwise this is a call to a user-defined function. Calls to
     // user-defined functions are mapped to a custom call that takes the callee
     // name as an attribute.
-    return builder.create<GenericCallOp>(location, callee, operands);
+    return mlirOpbldr.create<GenericCallOp>(location, callee, operands);
   }
 
-  /// Emit a print expression. It emits specific operations for two builtins:
-  /// transpose(x) and print(x).
-  mlir::LogicalResult mlirGen(PrintExprAST &call) {
-    auto arg = mlirGen(*call.getArg());
-    if (!arg)
-      return mlir::failure();
-
-    builder.create<PrintOp>(loc(call.loc()), arg);
-    return mlir::success();
-  }
-
-  /// Emit a constant for a single number (FIXME: semantic? broadcast?)
-  mlir::Value mlirGen(NumExpr_ast &num) {
-    return builder.create<ConstantOp>(loc(num.loc()), num.getValue());
-  }
-
-  /// Dispatch codegen for the right expression subclass using RTTI.
-  mlir::Value mlirGen(Expr_ast &expr) {
-    switch (expr.getKind()) {
-    case toy::Expr_ast::Expr_BinOp:
-      return mlirGen(cast<BinaryExprAST>(expr));
-    case toy::Expr_ast::Expr_Var:
-      return mlirGen(cast<VariableExprAST>(expr));
-    case toy::Expr_ast::Expr_Literal:
-      return mlirGen(cast<LitExpr_ast>(expr));
-    case toy::Expr_ast::Expr_Call:
-      return mlirGen(cast<CallExpr_ast>(expr));
-    case toy::Expr_ast::Expr_Num:
-      return mlirGen(cast<NumExpr_ast>(expr));
-    default:
-      emitError(loc(expr.loc()))
-          << "MLIR codegen encountered an unhandled expr kind '"
-          << Twine(expr.getKind()) << "'";
-      return nullptr;
-    }
-  }
-
-  /// Handle a variable declaration, we'll codegen the expression that forms the
-  /// initializer and record the value in the symbol table before returning it.
-  /// Future expressions will be able to reference this variable through symbol
-  /// table lookup.
-  mlir::Value mlirGen(VarDeclExpr_ast &vardecl) {
-    auto init = vardecl.getInitVal();
-    if (!init) {
-      emitError(loc(vardecl.loc()),
-                "missing initializer in variable declaration");
-      return nullptr;
-    }
-
-    mlir::Value value = mlirGen(*init);
-    if (!value)
-      return nullptr;
-
-    // We have the initializer value, but in case the variable was declared
-    // with specific shape, we emit a "reshape" operation. It will get
-    // optimized out later as needed.
-    if (!vardecl.getType().shape.empty()) {
-      value = builder.create<ReshapeOp>(loc(vardecl.loc()),
-                                        getType(vardecl.getType()), value);
-    }
-
-    // Register the value in the symbol table.
-    if (failed(declare(vardecl.getName(), value)))
-      return nullptr;
-    return value;
-  }
-
-  /// Codegen a list of expression, return failure if one of them hit an error.
-  mlir::LogicalResult mlirGen(ExprASTList &blockAST) {
-    ScopedHashTableScope<StringRef, mlir::Value> var_scope(symbolTable);
-    for (auto &expr : blockAST) {
-      // Specific handling for variable declarations, return statement, and
-      // print. These can only appear in block list and not in nested
-      // expressions.
-      if (auto *vardecl = dyn_cast<VarDeclExpr_ast>(expr.get())) {
-        if (!mlirGen(*vardecl))
-          return mlir::failure();
-        continue;
-      }
-      if (auto *ret = dyn_cast<ReturnExprAST>(expr.get()))
-        return mlirGen(*ret);
-      if (auto *print = dyn_cast<PrintExprAST>(expr.get())) {
-        if (mlir::failed(mlirGen(*print)))
-          return mlir::success();
-        continue;
-      }
-
-      // Generic expression dispatch codegen.
-      if (!mlirGen(*expr))
-        return mlir::failure();
-    }
-    return mlir::success();
-  }
-
-  /// Build a tensor type from a list of shape dimensions.
-  mlir::Type getType(ArrayRef<int64_t> shape) {
-    // If the shape is empty, then this type is unranked.
-    if (shape.empty())
-      return mlir::UnrankedTensorType::get(builder.getF64Type());
-
-    // Otherwise, we use the given shape.
-    return mlir::RankedTensorType::get(shape, builder.getF64Type());
-  }
-
-  /// Build an MLIR type from a Toy AST variable type (forward to the generic
-  /// getType above).
-  mlir::Type getType(const VarType &type) { return getType(type.shape); }
+#endif
 };
 
-} // namespace
+} // namespace es2
 
-namespace es2 {
+/// Build full Module. A module is a list of function definitions.
+std::unique_ptr<Module_ast> es2::astGenModule() {
+  using namespace std;
 
-// The public API for codegen.
-mlir::OwningModuleRef mlirGen(mlir::MLIRContext &context,
-                              ModuleAST &moduleAST) {
-  return MLIRGenImpl(context).mlirGen(moduleAST);
+  shared_ptr<string> file = make_shared<string>("D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.toy");
+  shared_ptr<string> file_content = make_shared<string>(
+      R"(
+def multiply_transpose(a, b) {
+var a2 = transpose(a);
+var b2 = transpose(b);
+}
+)");
+
+  vector<Func_ast> mdlfns;
+  {
+    // Prototype
+
+    vector<unique_ptr<VarExpr_ast>> args;
+    args.emplace_back(make_unique<VarExpr_ast>(SrcLoc_t{file, 2, 24}, "a"));
+    args.emplace_back(make_unique<VarExpr_ast>(SrcLoc_t{file, 2, 27}, "b"));
+    unique_ptr<FnProto_ast> fnproto = make_unique<FnProto_ast>(SrcLoc_t{file, 2, 1}, "multiply_transpose", move(args));
+
+    unique_ptr<ExprList_ast> fnbody = make_unique<ExprList_ast>();
+    {
+      {
+        vector<unique_ptr<Expr_ast>> args;
+        args.emplace_back(make_unique<VarExpr_ast>(SrcLoc_t{file,1,27}, "a"));
+        unique_ptr<VarDeclExpr_ast> a2vardecl = make_unique<VarDeclExpr_ast>(
+          SrcLoc_t{ file, 1, 27 }, "a2", VarType{},
+          make_unique<CallExpr_ast>(SrcLoc_t{file,1,27}, "transpose",
+            move(args)));    
+        fnbody->emplace_back(move(a2vardecl));
+      }
+      {
+        vector<unique_ptr<Expr_ast>> args;
+        args.emplace_back(make_unique<VarExpr_ast>(SrcLoc_t{ file,1,27 }, "b"));
+        unique_ptr<VarDeclExpr_ast> b2vardecl = make_unique<VarDeclExpr_ast>(
+          SrcLoc_t{ file, 1, 27 }, "b2", VarType{},
+          make_unique<CallExpr_ast>(SrcLoc_t{ file,1,27 }, "transpose",
+            move(args)));    
+        fnbody->emplace_back(move(b2vardecl));
+      }
+    }
+
+    mdlfns.emplace_back(move(fnproto), std::move(fnbody));
+  }
+
+  return make_unique<Module_ast>(move(mdlfns));
 }
 
-} // namespace es2
-#endif
+mlir::OwningModuleRef es2::mlirGen(mlir::MLIRContext &context,
+                              Module_ast &moduleAST) {
+  return TLVIRGenImpl(context).mlirGen(moduleAST);
+}
+
+
+int es2::dumpTLVIR() {
+  using namespace std;
+  mlir::MLIRContext context(/*loadAllDialects=*/false);
+  // Load our Dialect in this MLIR Context.
+  context.getOrLoadDialect<mlir::tolva::TolvaDialect>();
+  unique_ptr<Module_ast> tlvmdl = es2::astGenModule();
+  mlir::OwningModuleRef module = mlirGen(context, *tlvmdl);
+  if (!module)
+    return 1;
+
+  module->dump();
+  return 0;
+}
