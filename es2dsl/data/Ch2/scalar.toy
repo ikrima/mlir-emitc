@@ -1,4 +1,4 @@
-# RUN: toyc-ch2 %s -emit=mlir 2>&1 | FileCheck %s
+# RUN: es2dsl %s -emit=mlir 2>&1 | FileCheck %s
 
 def main() {
   var a<2, 2> = 5.5;
@@ -11,4 +11,3 @@ def main() {
 # CHECK-NEXT:    toy.print %1 : tensor<2x2xf64>
 # CHECK-NEXT:    toy.return
 # CHECK-NEXT:  }
-

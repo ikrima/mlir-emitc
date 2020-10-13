@@ -433,7 +433,7 @@ std::unique_ptr<Module_ast> es2::astGenModule() {
   using namespace std;
 
   shared_ptr<string> file = make_shared<string>(
-      "D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.toy");
+      "D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.tolva");
   shared_ptr<string> file_content = make_shared<string>(
       R"(
 def multiply_transpose(a, b) {
@@ -446,29 +446,6 @@ return ret;
 
   vector<Func_ast> mdlfns;
   {
-#if 0
-    // Prototype
-    Module:
-    Function
-      Proto 'multiply_transpose' @D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.toy:2:1
-      Params: [a, b]
-      Block {
-        VarDecl a2<> @D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.toy:3:1
-          Call 'transpose' [ @D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.toy:3:10
-            var: a @D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.toy:3:20
-          ]
-        VarDecl b2<> @D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.toy:4:1
-          Call 'transpose' [ @D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.toy:4:10
-            var: b @D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.toy:4:20
-          ]
-        VarDecl ret<> @D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.toy:5:1
-          BinOp: * @D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.toy:5:16
-            var: a2 @D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.toy:5:11
-            var: b2 @D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.toy:5:16
-        Return
-          var: ret @D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.toy:6:8
-      } // Block
-#endif
     vector<unique_ptr<VarExpr_ast>> args;
     args.emplace_back(make_unique<VarExpr_ast>(SrcLoc_t{file, 2, 24}, "a"));
     args.emplace_back(make_unique<VarExpr_ast>(SrcLoc_t{file, 2, 27}, "b"));
@@ -519,7 +496,7 @@ mlir::OwningModuleRef es2::mlirGen(mlir::MLIRContext &context,
   return TLVIRGenImpl(context).mlirGen(moduleAST);
 }
 
-int es2::dumpTLVIR() {
+int es2::dumpTolvaMLIR() {
   using namespace std;
   mlir::MLIRContext context(/*loadAllDialects=*/false);
   // Load our Dialect in this MLIR Context.

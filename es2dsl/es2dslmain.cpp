@@ -19,7 +19,11 @@
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Module.h"
 #include "mlir/IR/Verifier.h"
+#include "mlir/InitAllDialects.h"
 #include "mlir/Parser.h"
+#include "mlir/Pass/Pass.h"
+#include "mlir/Pass/PassManager.h"
+#include "mlir/Transforms/Passes.h"
 
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/CommandLine.h"
@@ -29,6 +33,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "inc/es2dsl/subsys/es2tlvast.h"
 #include "inc/es2dsl/subsys/es2mlirsubsys.h"
+#include "../include/emitc/InitTranslation.h"
 
 using namespace toy;
 namespace cl = llvm::cl;
@@ -124,13 +129,18 @@ int dumpAST() {
 }
 
 int main(int argc, char **argv) {
+  mlir::registerEmitCTranslation();
+  mlir::registerAllDialects();
+
   // Register any command line options.
   mlir::registerAsmPrinterCLOptions();
   mlir::registerMLIRContextCLOptions();
+  mlir::registerPassManagerCLOptions();
+
   cl::ParseCommandLineOptions(argc, argv, "toy compiler\n");
 
   {
-    es2::dumpTLVIR();
+    es2::dumpTolvaMLIR();
   }
   switch (emitAction) {
   case Action::DumpAST:

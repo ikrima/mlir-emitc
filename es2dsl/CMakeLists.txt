@@ -18,12 +18,15 @@ endmacro(add_toy_chapter name)
 add_subdirectory(include)
 add_subdirectory(inc)
 
+include_directories(include)
+include_directories(inc)
+
 set(LLVM_LINK_COMPONENTS
   Support
   )
 
-add_toy_chapter(toyc-ch2
-  toyc.cpp
+add_toy_chapter(es2dsl
+  es2dslmain.cpp
   parser/AST.cpp
   mlir/MLIRGen.cpp
   mlir/Dialect.cpp
@@ -33,15 +36,23 @@ add_toy_chapter(toyc-ch2
 
   DEPENDS
   ToyCh2OpsIncGen
-
   )
-include_directories(include/)
-include_directories(inc/)
+
+get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
+
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/include/)
-target_link_libraries(toyc-ch2
+target_link_libraries(es2dsl
   PRIVATE
+    ${dialect_libs}
     MLIRAnalysis
+    MLIRCallInterfaces
     MLIRIR
     MLIRParser
     MLIRSideEffectInterfaces
-    MLIRTransforms)
+    MLIRTransforms
+    MLIRPass
+    MLIRTranslation
+    MLIRSupport
+    MLIREmitC
+    MLIRTargetCpp)
