@@ -247,4 +247,4 @@ static mlir::LogicalResult verify(TransposeOp op) {
 //===----------------------------------------------------------------------===//
 
 #define GET_OP_CLASSES
-#include "es2dsl/dialect/es2tolvaops.cpp.inl"
+#include "es2dsl/tblgen/es2tolvaops.cpp.inl"

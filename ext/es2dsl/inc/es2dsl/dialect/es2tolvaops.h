@@ -12,4 +12,4 @@
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 
 #define GET_OP_CLASSES
-#include "es2dsl/dialect/es2tolvaops.h.inl"
+#include "es2dsl/tblgen/es2tolvaops.h.inl"

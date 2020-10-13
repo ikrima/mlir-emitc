@@ -20,6 +20,6 @@ TolvaDialect::TolvaDialect(mlir::MLIRContext *ctx)
 
 #define GET_OP_LIST
   addOperations<
-#include "es2dsl/dialect/es2tolvaops.cpp.inl"
+#include "es2dsl/tblgen/es2tolvaops.cpp.inl"
   >();
 }
