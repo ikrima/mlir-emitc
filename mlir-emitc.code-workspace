@@ -39,5 +39,6 @@
 			// "LLVM_PARALLEL_COMPILE_JOBS":     "28",
 			// "LLVM_PARALLEL_LINK_JOBS":        "28",
 		},
+		"cmake.buildDirectory": "${workspaceFolder}/build/${buildType}",
 	}
 }

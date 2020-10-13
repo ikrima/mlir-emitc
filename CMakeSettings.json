@@ -1,13 +1,29 @@
 ﻿{
   "configurations": [
     {
-      "name": "x64-Debug",
+      "name": "Debug",
       "generator": "Ninja",
       "configurationType": "Debug",
       "inheritEnvironments": [ "msvc_x64_x64" ],
       "buildRoot": "${projectDir}\\build\\${name}",
       "installRoot": "${projectDir}\\install\\${name}",
-      "variables": []
+      "variables": [
+        {
+          "name": "CMAKE_EXPORT_COMPILE_COMMANDS",
+          "value": "True",
+          "type": "BOOL"
+        },
+        {
+          "name": "EMITC_INCLUDE_TESTS",
+          "value": "False",
+          "type": "BOOL"
+        },
+        {
+          "name": "EMITC_ENABLE_HLO",
+          "value": "True",
+          "type": "BOOL"
+        }
+      ]
     }
   ]
 }
