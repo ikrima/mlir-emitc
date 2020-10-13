@@ -9,8 +9,10 @@
 #ifdef GET_OP_LIST
 #undef GET_OP_LIST
 
+::mlir::tolva::AddOp,
 ::mlir::tolva::ConstantOp,
 ::mlir::tolva::GenericCallOp,
+::mlir::tolva::MulOp,
 ::mlir::tolva::PrintOp,
 ::mlir::tolva::ReshapeOp,
 ::mlir::tolva::ReturnOp,
@@ -20,6 +22,153 @@
 #ifdef GET_OP_CLASSES
 #undef GET_OP_CLASSES
 
+namespace mlir {
+namespace tolva {
+
+//===----------------------------------------------------------------------===//
+// ::mlir::tolva::AddOp definitions
+//===----------------------------------------------------------------------===//
+
+AddOpAdaptor::AddOpAdaptor(::mlir::ValueRange values, ::mlir::DictionaryAttr attrs)  : odsOperands(values), odsAttrs(attrs) {
+
+}
+
+AddOpAdaptor::AddOpAdaptor(AddOp&op)  : odsOperands(op.getOperation()->getOperands()), odsAttrs(op.getOperation()->getAttrDictionary()) {
+
+}
+
+std::pair<unsigned, unsigned> AddOpAdaptor::getODSOperandIndexAndLength(unsigned index) {
+  return {index, 1};
+}
+
+::mlir::ValueRange AddOpAdaptor::getODSOperands(unsigned index) {
+  auto valueRange = getODSOperandIndexAndLength(index);
+  return {std::next(odsOperands.begin(), valueRange.first),
+           std::next(odsOperands.begin(), valueRange.first + valueRange.second)};
+}
+
+::mlir::Value AddOpAdaptor::lhs() {
+  return *getODSOperands(0).begin();
+}
+
+::mlir::Value AddOpAdaptor::rhs() {
+  return *getODSOperands(1).begin();
+}
+
+::mlir::LogicalResult AddOpAdaptor::verify(::mlir::Location loc) {
+  return ::mlir::success();
+}
+
+::llvm::StringRef AddOp::getOperationName() {
+  return "tolva.add";
+}
+
+std::pair<unsigned, unsigned> AddOp::getODSOperandIndexAndLength(unsigned index) {
+  return {index, 1};
+}
+
+::mlir::Operation::operand_range AddOp::getODSOperands(unsigned index) {
+  auto valueRange = getODSOperandIndexAndLength(index);
+  return {std::next(getOperation()->operand_begin(), valueRange.first),
+           std::next(getOperation()->operand_begin(), valueRange.first + valueRange.second)};
+}
+
+::mlir::Value AddOp::lhs() {
+  return *getODSOperands(0).begin();
+}
+
+::mlir::Value AddOp::rhs() {
+  return *getODSOperands(1).begin();
+}
+
+::mlir::MutableOperandRange AddOp::lhsMutable() {
+  auto range = getODSOperandIndexAndLength(0);
+  return ::mlir::MutableOperandRange(getOperation(), range.first, range.second);
+}
+
+::mlir::MutableOperandRange AddOp::rhsMutable() {
+  auto range = getODSOperandIndexAndLength(1);
+  return ::mlir::MutableOperandRange(getOperation(), range.first, range.second);
+}
+
+std::pair<unsigned, unsigned> AddOp::getODSResultIndexAndLength(unsigned index) {
+  return {index, 1};
+}
+
+::mlir::Operation::result_range AddOp::getODSResults(unsigned index) {
+  auto valueRange = getODSResultIndexAndLength(index);
+  return {std::next(getOperation()->result_begin(), valueRange.first),
+           std::next(getOperation()->result_begin(), valueRange.first + valueRange.second)};
+}
+
+
+
+void AddOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type resultType0, ::mlir::Value lhs, ::mlir::Value rhs) {
+  odsState.addOperands(lhs);
+  odsState.addOperands(rhs);
+  odsState.addTypes(resultType0);
+}
+
+void AddOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value lhs, ::mlir::Value rhs) {
+  odsState.addOperands(lhs);
+  odsState.addOperands(rhs);
+  assert(resultTypes.size() == 1u && "mismatched number of results");
+  odsState.addTypes(resultTypes);
+}
+
+void AddOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes) {
+  assert(operands.size() == 2u && "mismatched number of parameters");
+  odsState.addOperands(operands);
+  odsState.addAttributes(attributes);
+  assert(resultTypes.size() == 1u && "mismatched number of return types");
+  odsState.addTypes(resultTypes);
+}
+
+::mlir::ParseResult AddOp::parse(::mlir::OpAsmParser &parser, ::mlir::OperationState &result) {
+  return ::parseBinaryOp(parser, result);
+}
+
+void AddOp::print(::mlir::OpAsmPrinter &p) {
+  return ::printBinaryOp(p, *this);
+}
+
+::mlir::LogicalResult AddOp::verify() {
+  if (failed(AddOpAdaptor(*this).verify(this->getLoc()))) return ::mlir::failure();
+  {
+    unsigned index = 0; (void)index;
+    auto valueGroup0 = getODSOperands(0);
+    for (::mlir::Value v : valueGroup0) {
+      (void)v;
+      if (!(((v.getType().isa<::mlir::TensorType>())) && ((v.getType().cast<::mlir::ShapedType>().getElementType().isF64())))) {
+        return emitOpError("operand #") << index << " must be tensor of 64-bit float values, but got " << v.getType();
+      }
+      ++index;
+    }
+    auto valueGroup1 = getODSOperands(1);
+    for (::mlir::Value v : valueGroup1) {
+      (void)v;
+      if (!(((v.getType().isa<::mlir::TensorType>())) && ((v.getType().cast<::mlir::ShapedType>().getElementType().isF64())))) {
+        return emitOpError("operand #") << index << " must be tensor of 64-bit float values, but got " << v.getType();
+      }
+      ++index;
+    }
+  }
+  {
+    unsigned index = 0; (void)index;
+    auto valueGroup0 = getODSResults(0);
+    for (::mlir::Value v : valueGroup0) {
+      (void)v;
+      if (!(((v.getType().isa<::mlir::TensorType>())) && ((v.getType().cast<::mlir::ShapedType>().getElementType().isF64())))) {
+        return emitOpError("result #") << index << " must be tensor of 64-bit float values, but got " << v.getType();
+      }
+      ++index;
+    }
+  }
+  return ::mlir::success();
+}
+
+} // namespace tolva
+} // namespace mlir
 namespace mlir {
 namespace tolva {
 
@@ -98,6 +247,7 @@ void ConstantOp::valueAttr(::mlir::DenseElementsAttr attr) {
 }
 
 void ConstantOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, DenseElementsAttr value) {
+
       build(odsBuilder, odsState, value.getType(), value);
     
 }
@@ -381,6 +531,153 @@ void GenericCallOp::print(::mlir::OpAsmPrinter &p) {
   p << " " << ":";
   p << " ";
   p.printFunctionalType(inputs().getTypes(), getOperation()->getResultTypes());
+}
+
+} // namespace tolva
+} // namespace mlir
+namespace mlir {
+namespace tolva {
+
+//===----------------------------------------------------------------------===//
+// ::mlir::tolva::MulOp definitions
+//===----------------------------------------------------------------------===//
+
+MulOpAdaptor::MulOpAdaptor(::mlir::ValueRange values, ::mlir::DictionaryAttr attrs)  : odsOperands(values), odsAttrs(attrs) {
+
+}
+
+MulOpAdaptor::MulOpAdaptor(MulOp&op)  : odsOperands(op.getOperation()->getOperands()), odsAttrs(op.getOperation()->getAttrDictionary()) {
+
+}
+
+std::pair<unsigned, unsigned> MulOpAdaptor::getODSOperandIndexAndLength(unsigned index) {
+  return {index, 1};
+}
+
+::mlir::ValueRange MulOpAdaptor::getODSOperands(unsigned index) {
+  auto valueRange = getODSOperandIndexAndLength(index);
+  return {std::next(odsOperands.begin(), valueRange.first),
+           std::next(odsOperands.begin(), valueRange.first + valueRange.second)};
+}
+
+::mlir::Value MulOpAdaptor::lhs() {
+  return *getODSOperands(0).begin();
+}
+
+::mlir::Value MulOpAdaptor::rhs() {
+  return *getODSOperands(1).begin();
+}
+
+::mlir::LogicalResult MulOpAdaptor::verify(::mlir::Location loc) {
+  return ::mlir::success();
+}
+
+::llvm::StringRef MulOp::getOperationName() {
+  return "tolva.mul";
+}
+
+std::pair<unsigned, unsigned> MulOp::getODSOperandIndexAndLength(unsigned index) {
+  return {index, 1};
+}
+
+::mlir::Operation::operand_range MulOp::getODSOperands(unsigned index) {
+  auto valueRange = getODSOperandIndexAndLength(index);
+  return {std::next(getOperation()->operand_begin(), valueRange.first),
+           std::next(getOperation()->operand_begin(), valueRange.first + valueRange.second)};
+}
+
+::mlir::Value MulOp::lhs() {
+  return *getODSOperands(0).begin();
+}
+
+::mlir::Value MulOp::rhs() {
+  return *getODSOperands(1).begin();
+}
+
+::mlir::MutableOperandRange MulOp::lhsMutable() {
+  auto range = getODSOperandIndexAndLength(0);
+  return ::mlir::MutableOperandRange(getOperation(), range.first, range.second);
+}
+
+::mlir::MutableOperandRange MulOp::rhsMutable() {
+  auto range = getODSOperandIndexAndLength(1);
+  return ::mlir::MutableOperandRange(getOperation(), range.first, range.second);
+}
+
+std::pair<unsigned, unsigned> MulOp::getODSResultIndexAndLength(unsigned index) {
+  return {index, 1};
+}
+
+::mlir::Operation::result_range MulOp::getODSResults(unsigned index) {
+  auto valueRange = getODSResultIndexAndLength(index);
+  return {std::next(getOperation()->result_begin(), valueRange.first),
+           std::next(getOperation()->result_begin(), valueRange.first + valueRange.second)};
+}
+
+
+
+void MulOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type resultType0, ::mlir::Value lhs, ::mlir::Value rhs) {
+  odsState.addOperands(lhs);
+  odsState.addOperands(rhs);
+  odsState.addTypes(resultType0);
+}
+
+void MulOp::build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value lhs, ::mlir::Value rhs) {
+  odsState.addOperands(lhs);
+  odsState.addOperands(rhs);
+  assert(resultTypes.size() == 1u && "mismatched number of results");
+  odsState.addTypes(resultTypes);
+}
+
+void MulOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes) {
+  assert(operands.size() == 2u && "mismatched number of parameters");
+  odsState.addOperands(operands);
+  odsState.addAttributes(attributes);
+  assert(resultTypes.size() == 1u && "mismatched number of return types");
+  odsState.addTypes(resultTypes);
+}
+
+::mlir::ParseResult MulOp::parse(::mlir::OpAsmParser &parser, ::mlir::OperationState &result) {
+  return ::parseBinaryOp(parser, result);
+}
+
+void MulOp::print(::mlir::OpAsmPrinter &p) {
+  return ::printBinaryOp(p, *this);
+}
+
+::mlir::LogicalResult MulOp::verify() {
+  if (failed(MulOpAdaptor(*this).verify(this->getLoc()))) return ::mlir::failure();
+  {
+    unsigned index = 0; (void)index;
+    auto valueGroup0 = getODSOperands(0);
+    for (::mlir::Value v : valueGroup0) {
+      (void)v;
+      if (!(((v.getType().isa<::mlir::TensorType>())) && ((v.getType().cast<::mlir::ShapedType>().getElementType().isF64())))) {
+        return emitOpError("operand #") << index << " must be tensor of 64-bit float values, but got " << v.getType();
+      }
+      ++index;
+    }
+    auto valueGroup1 = getODSOperands(1);
+    for (::mlir::Value v : valueGroup1) {
+      (void)v;
+      if (!(((v.getType().isa<::mlir::TensorType>())) && ((v.getType().cast<::mlir::ShapedType>().getElementType().isF64())))) {
+        return emitOpError("operand #") << index << " must be tensor of 64-bit float values, but got " << v.getType();
+      }
+      ++index;
+    }
+  }
+  {
+    unsigned index = 0; (void)index;
+    auto valueGroup0 = getODSResults(0);
+    for (::mlir::Value v : valueGroup0) {
+      (void)v;
+      if (!(((v.getType().isa<::mlir::TensorType>())) && ((v.getType().cast<::mlir::ShapedType>().getElementType().isF64())))) {
+        return emitOpError("result #") << index << " must be tensor of 64-bit float values, but got " << v.getType();
+      }
+      ++index;
+    }
+  }
+  return ::mlir::success();
 }
 
 } // namespace tolva

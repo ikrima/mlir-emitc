@@ -20,6 +20,9 @@ include "mlir/IR/OpBase.td"
 def Tolva_Dialect : Dialect {
   let name = "tolva";
   let cppNamespace = "::mlir::tolva";
+  let summary = [{
+    A dialect used for types common across Tolva subdialects.
+  }];
 }
 
 

@@ -2,6 +2,8 @@
 def multiply_transpose(a, b) {
 var a2 = transpose(a);
 var b2 = transpose(b);
+var ret = a2 * b2;
+return ret;
 }
 
 # # User defined generic function that operates on unknown shaped arguments.

@@ -59,7 +59,7 @@ struct TLVIRGenImpl {
     // add them to the module.
     mlirMdl = mlir::ModuleOp::create(mlirOpbldr.getUnknownLoc());
 
-     for (Func_ast &F : moduleAST) {
+    for (Func_ast &F : moduleAST) {
       auto func = mlirGen_func(F);
       if (!func)
         return nullptr;
@@ -69,7 +69,7 @@ struct TLVIRGenImpl {
     // Verify the module after we have finished constructing it, this will
     // check / the structural properties of the IR and invoke any specific
     // verifiers we / have on the Toy operations.
-     if (failed(mlir::verify(mlirMdl))) {
+    if (failed(mlir::verify(mlirMdl))) {
       mlirMdl.emitError("module verification error");
       return nullptr;
     }
@@ -218,10 +218,8 @@ struct TLVIRGenImpl {
   /// Dispatch codegen for the right expression subclass using RTTI.
   mlir::Value mlirGen_expr(Expr_ast &expr) {
     switch (expr.getKind()) {
-#if 0
     case ExprASTKnd::BinOp:
-      return mlirGen(cast<BinaryExprAST>(expr));
-#endif
+      return mlirGen_binop(cast<BinaryExpr_ast>(expr));
     case ExprASTKnd::Var:
       return mlirGen_var(cast<VarExpr_ast>(expr));
     case ExprASTKnd::Literal:
@@ -347,6 +345,40 @@ struct TLVIRGenImpl {
     return value;
   }
 
+  /// Emit a binary operation
+  mlir::Value mlirGen_binop(BinaryExpr_ast &binop) {
+    // First emit the operations for each side of the operation before emitting
+    // the operation itself. For example if the expression is `a + foo(a)`
+    // 1) First it will visiting the LHS, which will return a reference to the
+    //    value holding `a`. This value should have been emitted at declaration
+    //    time and registered in the symbol table, so nothing would be
+    //    codegen'd. If the value is not in the symbol table, an error has been
+    //    emitted and nullptr is returned.
+    // 2) Then the RHS is visited (recursively) and a call to `foo` is emitted
+    //    and the result value is returned. If an error occurs we get a nullptr
+    //    and propagate.
+    //
+    mlir::Value lhs = mlirGen_expr(*binop.getLHS());
+    if (!lhs)
+      return nullptr;
+    mlir::Value rhs = mlirGen_expr(*binop.getRHS());
+    if (!rhs)
+      return nullptr;
+    auto location = loc(binop.loc());
+
+    // Derive the operation name from the binary operator. At the moment we only
+    // support '+' and '*'.
+    switch (binop.getOp()) {
+    case '+':
+      return mlirOpbldr.create<AddOp>(location, lhs, rhs);
+    case '*':
+      return mlirOpbldr.create<MulOp>(location, lhs, rhs);
+    }
+
+    emitError(location, "invalid binary operator '") << binop.getOp() << "'";
+    return nullptr;
+  }
+
   /// This is a reference to a variable in an expression. The variable is
   /// expected to have been declared and so should have a value in the symbol
   /// table, otherwise emit an error and return nullptr.
@@ -400,57 +432,92 @@ struct TLVIRGenImpl {
 std::unique_ptr<Module_ast> es2::astGenModule() {
   using namespace std;
 
-  shared_ptr<string> file = make_shared<string>("D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.toy");
+  shared_ptr<string> file = make_shared<string>(
+      "D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.toy");
   shared_ptr<string> file_content = make_shared<string>(
       R"(
 def multiply_transpose(a, b) {
 var a2 = transpose(a);
 var b2 = transpose(b);
+var ret = a2 * b2;
+return ret;
 }
 )");
 
   vector<Func_ast> mdlfns;
   {
+#if 0
     // Prototype
-
+    Module:
+    Function
+      Proto 'multiply_transpose' @D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.toy:2:1
+      Params: [a, b]
+      Block {
+        VarDecl a2<> @D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.toy:3:1
+          Call 'transpose' [ @D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.toy:3:10
+            var: a @D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.toy:3:20
+          ]
+        VarDecl b2<> @D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.toy:4:1
+          Call 'transpose' [ @D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.toy:4:10
+            var: b @D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.toy:4:20
+          ]
+        VarDecl ret<> @D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.toy:5:1
+          BinOp: * @D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.toy:5:16
+            var: a2 @D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.toy:5:11
+            var: b2 @D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.toy:5:16
+        Return
+          var: ret @D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.toy:6:8
+      } // Block
+#endif
     vector<unique_ptr<VarExpr_ast>> args;
     args.emplace_back(make_unique<VarExpr_ast>(SrcLoc_t{file, 2, 24}, "a"));
     args.emplace_back(make_unique<VarExpr_ast>(SrcLoc_t{file, 2, 27}, "b"));
-    unique_ptr<FnProto_ast> fnproto = make_unique<FnProto_ast>(SrcLoc_t{file, 2, 1}, "multiply_transpose", move(args));
+    unique_ptr<FnProto_ast> fnproto = make_unique<FnProto_ast>(
+        SrcLoc_t{file, 2, 1}, "multiply_transpose", move(args));
 
     unique_ptr<ExprList_ast> fnbody = make_unique<ExprList_ast>();
     {
       {
         vector<unique_ptr<Expr_ast>> args;
-        args.emplace_back(make_unique<VarExpr_ast>(SrcLoc_t{file,1,27}, "a"));
-        unique_ptr<VarDeclExpr_ast> a2vardecl = make_unique<VarDeclExpr_ast>(
-          SrcLoc_t{ file, 1, 27 }, "a2", VarType{},
-          make_unique<CallExpr_ast>(SrcLoc_t{file,1,27}, "transpose",
-            move(args)));    
-        fnbody->emplace_back(move(a2vardecl));
+        args.emplace_back(make_unique<VarExpr_ast>(SrcLoc_t{file, 3, 20}, "a"));
+        fnbody->emplace_back(make_unique<VarDeclExpr_ast>(
+            SrcLoc_t{file, 3, 1}, "a2", VarType{},
+            make_unique<CallExpr_ast>(SrcLoc_t{file, 3, 10}, "transpose", move(args))));
       }
       {
         vector<unique_ptr<Expr_ast>> args;
-        args.emplace_back(make_unique<VarExpr_ast>(SrcLoc_t{ file,1,27 }, "b"));
-        unique_ptr<VarDeclExpr_ast> b2vardecl = make_unique<VarDeclExpr_ast>(
-          SrcLoc_t{ file, 1, 27 }, "b2", VarType{},
-          make_unique<CallExpr_ast>(SrcLoc_t{ file,1,27 }, "transpose",
-            move(args)));    
-        fnbody->emplace_back(move(b2vardecl));
+        args.emplace_back(make_unique<VarExpr_ast>(SrcLoc_t{file, 4, 20}, "b"));
+        fnbody->emplace_back(make_unique<VarDeclExpr_ast>(
+            SrcLoc_t{file, 4, 1}, "b2", VarType{},
+            make_unique<CallExpr_ast>(SrcLoc_t{file, 4, 10}, "transpose",move(args))));
+      }
+      {
+        fnbody->emplace_back(make_unique<VarDeclExpr_ast>(
+            SrcLoc_t{file, 5, 1}, "ret", VarType{},
+            make_unique<BinaryExpr_ast>(
+                SrcLoc_t{file, 5, 16}, '*',
+                make_unique<VarExpr_ast>(SrcLoc_t{file, 5, 11}, "a2"),
+                make_unique<VarExpr_ast>(SrcLoc_t{file, 5, 16}, "b2"))));
+      }
+      {
+        ;
+        fnbody->emplace_back(make_unique<RetExpr_ast>(
+            SrcLoc_t{file, 6, 1},
+            llvm::Optional<unique_ptr<Expr_ast>>(
+                make_unique<VarExpr_ast>(SrcLoc_t{file, 6, 8}, "ret"))));
       }
     }
 
-    mdlfns.emplace_back(move(fnproto), std::move(fnbody));
+    mdlfns.emplace_back(move(fnproto), move(fnbody));
   }
 
   return make_unique<Module_ast>(move(mdlfns));
 }
 
 mlir::OwningModuleRef es2::mlirGen(mlir::MLIRContext &context,
-                              Module_ast &moduleAST) {
+                                   Module_ast &moduleAST) {
   return TLVIRGenImpl(context).mlirGen(moduleAST);
 }
-
 
 int es2::dumpTLVIR() {
   using namespace std;
@@ -461,7 +528,13 @@ int es2::dumpTLVIR() {
   mlir::OwningModuleRef module = mlirGen(context, *tlvmdl);
   if (!module)
     return 1;
-
+  // clang-format off  
+  llvm::outs() << "//------------------------------------------------------------------------------//\n";
+  llvm::outs() << "TLVIR:\n";
+  llvm::outs() << "//------------------------------------------------------------------------------//\n";
   module->dump();
+  llvm::outs() << "\n\n";
+  llvm::outs() << "//------------------------------------------------------------------------------//\n\n\n";
+  // clang-format on
   return 0;
 }

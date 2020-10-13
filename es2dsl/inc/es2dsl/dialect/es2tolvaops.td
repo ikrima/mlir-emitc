@@ -68,7 +68,6 @@ def ConstantOp : Tolva_Op<"constant", [NoSideEffect]> {
 }
 
 
-
 def GenericCallOp : Tolva_Op<"generic_call"> {
   let summary = "generic call operation";
   let description = [{
@@ -104,6 +103,47 @@ def GenericCallOp : Tolva_Op<"generic_call"> {
   ];
 }
 
+
+def AddOp : Tolva_Op<"add"> {
+  let summary = "element-wise addition operation";
+  let description = [{
+    The "add" operation performs element-wise addition between two tensors.
+    The shapes of the tensor operands are expected to match.
+  }];
+
+  let arguments = (ins F64Tensor:$lhs, F64Tensor:$rhs);
+  let results = (outs F64Tensor);
+
+  // Specify a parser and printer method.
+  let parser = [{ return ::parseBinaryOp(parser, result); }];
+  let printer = [{ return ::printBinaryOp(p, *this); }];
+
+  // Allow building an AddOp with from the two input operands.
+  let builders = [
+    OpBuilder<"Value lhs, Value rhs">
+  ];
+}
+
+
+def MulOp : Tolva_Op<"mul"> {
+  let summary = "element-wise multiplication operation";
+  let description = [{
+    The "mul" operation performs element-wise multiplication between two
+    tensors. The shapes of the tensor operands are expected to match.
+  }];
+
+  let arguments = (ins F64Tensor:$lhs, F64Tensor:$rhs);
+  let results = (outs F64Tensor);
+
+  // Specify a parser and printer method.
+  let parser = [{ return ::parseBinaryOp(parser, result); }];
+  let printer = [{ return ::printBinaryOp(p, *this); }];
+
+  // Allow building a MulOp with from the two input operands.
+  let builders = [
+    OpBuilder<"Value lhs, Value rhs">
+  ];
+}
 
 def PrintOp : Tolva_Op<"print"> {
   let arguments = (ins F64Tensor:$input);

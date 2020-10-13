@@ -143,6 +143,26 @@ public:
   static bool classof(const Expr_ast *c) { return c->getKind() == ExprASTKnd::Call; }
 };
 
+
+/// Expression class for a binary operator.
+class BinaryExpr_ast : public Expr_ast {
+  char op;
+  std::unique_ptr<Expr_ast> lhs, rhs;
+
+public:
+  char getOp() { return op; }
+  Expr_ast* getLHS() { return lhs.get(); }
+  Expr_ast* getRHS() { return rhs.get(); }
+
+  BinaryExpr_ast(SrcLoc_t loc, char Op, std::unique_ptr<Expr_ast> lhs,
+    std::unique_ptr<Expr_ast> rhs)
+    : Expr_ast(ExprASTKnd::BinOp, loc), op(Op), lhs(std::move(lhs)),
+    rhs(std::move(rhs)) {}
+
+  /// LLVM style RTTI
+  static bool classof(const Expr_ast* c) { return c->getKind() == ExprASTKnd::BinOp; }
+};
+
 /// Expression class for a return operator.
 class RetExpr_ast : public Expr_ast {
   llvm::Optional<std::unique_ptr<Expr_ast>> expr;
