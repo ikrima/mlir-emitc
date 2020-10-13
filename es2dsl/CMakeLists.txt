@@ -29,6 +29,7 @@ add_toy_chapter(toyc-ch2
   mlir/Dialect.cpp
   src/dialect/es2tolvadialect.cpp
   src/dialect/es2tolvaops.cpp
+  src/dialect/es2mlirsubsys.cpp
 
   DEPENDS
   ToyCh2OpsIncGen

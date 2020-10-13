@@ -4,7 +4,7 @@
 #include "mlir/IR/OpDefinition.h"
 
 namespace mlir {
-namespace es2 {
+namespace tolva {
 
 /// This is the definition of the Toy dialect. A dialect inherits from
 /// mlir::Dialect and registers custom attributes, operations, and types (in its
@@ -19,5 +19,5 @@ public:
   static llvm::StringRef getDialectNamespace() { return "tolva"; }
 };
 
-} // namespace es2
+} // namespace tolva
 } // end namespace mlir

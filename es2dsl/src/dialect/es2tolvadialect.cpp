@@ -7,7 +7,7 @@
 #include "mlir/IR/StandardTypes.h"
 
 using namespace mlir;
-using namespace mlir::es2;
+using namespace mlir::tolva;
 
 //===----------------------------------------------------------------------===//
 // TolvaDialect
@@ -17,5 +17,8 @@ using namespace mlir::es2;
 /// point of registration of custom types and operations for the dialect.
 TolvaDialect::TolvaDialect(mlir::MLIRContext *ctx)
     : mlir::Dialect(getDialectNamespace(), ctx, TypeID::get<TolvaDialect>()) {
-  addOperations<ConstantOp>();
+  addOperations<
+#define GET_OP_LIST
+#include "es2dsl/dialect/es2tolvaops.cpp.inl"
+  >();
 }
