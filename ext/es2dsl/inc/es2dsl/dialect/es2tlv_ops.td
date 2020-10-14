@@ -173,6 +173,9 @@ def ReshapeOp : Tolva_Op<"reshape"> {
   let assemblyFormat = [{
     `(` $input `:` type($input) `)` attr-dict `to` type(results)
   }];
+
+  // Enable registering canonicalization patterns with this operation.
+  let hasCanonicalizer = 1;
 }
 
 def ReturnOp : Tolva_Op<"return", [NoSideEffect, HasParent<"FuncOp">,
