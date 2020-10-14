@@ -11,26 +11,42 @@ set(LLVM_LINK_COMPONENTS
   AArch64
 
   # all
-  # MC
-  # MCParser
-  # Object
-  # Support
-  # Symbolize
-  # X86
-  # Target
+  # X86Disassembler
+  # X86AsmParser
+  # X86CodeGen
+  # CFGuard
+  # GlobalISel
+  # SelectionDAG
+  # AsmPrinter
+  # DebugInfoDWARF
+  # CodeGen
   # ScalarOpts
-  # Support
-  # native
-  # Analysis
-  # Core
-  # ExecutionEngine
   # InstCombine
-  # Object
-  # OrcJIT
-  # RuntimeDyld
-  # ScalarOpts
-  # Support
+  # AggressiveInstCombine
   # TransformUtils
+  # BitWriter
+  # X86Desc
+  # MCDisassembler
+  # X86Info
+  # MCJIT
+  # ExecutionEngine
+  # Target
+  # Analysis
+  # ProfileData
+  # RuntimeDyld
+  # Object
+  # TextAPI
+  # MCParser
+  # BitReader
+  # MC
+  # DebugInfoCodeView
+  # DebugInfoMSF
+  # Core
+  # Remarks
+  # BitstreamReader
+  # BinaryFormat
+  # Support
+  # Demangle
   )
 
 add_toy_chapter(es2dsl
