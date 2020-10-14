@@ -202,6 +202,7 @@ def main() {
 
       OperationBuilder<ReturnOp>();
     }
+    f.setVisibility(mlir::FuncOp::Visibility::Public);
     mlirMdl.push_back(f);
   }
 
@@ -266,9 +267,37 @@ int DSLSubsys_api::dumpLLVMIR(mlir::OwningModuleRef& module) {
     llvm::errs() << "Failed to optimize LLVM IR " << err << "\n";
     return -1;
   }
-  llvm::errs() << *llvmModule << "\n";
+  llvm::outs() << *llvmModule << "\n";
   return 0;
 }
+
+int DSLSubsys_api::runJit(mlir::OwningModuleRef& module) {
+  // Initialize LLVM targets
+  llvm::InitializeNativeTarget();
+  llvm::InitializeNativeTargetAsmPrinter();
+  llvm::InitializeNativeTargetAsmParser();
+
+  // An optimization pipeline to use within the execution engine.
+  auto optPipeline = mlir::makeOptimizingTransformer(
+    /*optLevel=*/bOptimize ? 3 : 0, /*sizeLevel=*/0,
+    /*targetMachine=*/nullptr);
+
+  // Create an MLIR execution engine. The execution engine eagerly JIT-compiles
+  // the module.
+  auto maybeEngine = mlir::ExecutionEngine::create(*module, optPipeline);
+  assert(maybeEngine && "failed to construct an execution engine");
+  auto& engine = maybeEngine.get();
+
+  // Invoke the JIT-compiled function.
+  auto invocationResult = engine->invoke("main");
+  if (invocationResult) {
+    llvm::errs() << "JIT invocation failed\n";
+    return -1;
+  }
+
+  return 0;
+}
+
 
 int DSLSubsys_api::genTolvaMLIR() {
   using namespace std;
@@ -346,6 +375,12 @@ int DSLSubsys_api::genTolvaMLIR() {
       }
     }
 
+    // Otherwise, we must be running the jit.
+    if (bRunJIT) {
+      if (int err = runJit(module)) {
+        return err;
+      }
+    }
   }
 
 

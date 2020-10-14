@@ -18,10 +18,10 @@ int main(int argc, char** argv) {
 
   DSLSubsys_api dslsubsys;
   dslsubsys.bCanonicalizationOnly = false;
-  dslsubsys.bOptimize             = true;
+  dslsubsys.bOptimize             = false;
   dslsubsys.bLowerToAffine        = true;
   dslsubsys.bLowerToLLVM          = true;
-  dslsubsys.bDumpLLVMIR           = false;
-  dslsubsys.bRunJIT               = true;
+  dslsubsys.bDumpLLVMIR           = true;
+  dslsubsys.bRunJIT               = false;
   return dslsubsys.genTolvaMLIR();
 }
