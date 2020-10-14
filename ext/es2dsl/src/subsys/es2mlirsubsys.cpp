@@ -1,6 +1,5 @@
 #include "es2dsl/subsys/es2mlirsubsys.h"
 
-#include "emitc/Target/Cpp.h"
 #include "es2dsl/dialect/es2mlirpasses.h"
 #include "es2dsl/dialect/es2tolvadialect.h"
 #include "es2dsl/dialect/es2tolvaops.h"
@@ -308,7 +307,7 @@ int es2::genTolvaMLIR() {
   }
 
 #if 0
-  mlirTranslate(*module->getOperation());
+  failed(mlir::emitc::TranslateToCpp(*module->getOperation(), llvm::outs(), false));
   {
 
     // Check to see what granularity of MLIR we are compiling to.
@@ -328,8 +327,4 @@ int es2::genTolvaMLIR() {
 #endif    // 0
 
   return 0;
-}
-
-int es2::mlirTranslate(mlir::Operation& op) {
-  return failed(mlir::emitc::TranslateToCpp(op, llvm::outs(), false));
 }

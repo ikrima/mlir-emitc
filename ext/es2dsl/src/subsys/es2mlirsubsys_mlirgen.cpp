@@ -1,6 +1,5 @@
 #include "es2dsl/subsys/es2mlirsubsys.h"
 
-#include "emitc/Target/Cpp.h"
 #include "es2dsl/dialect/es2mlirpasses.h"
 #include "es2dsl/dialect/es2tolvadialect.h"
 #include "es2dsl/dialect/es2tolvaops.h"

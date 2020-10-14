@@ -23,5 +23,4 @@ namespace es2 {
   /// or nullptr on failure.
   mlir::OwningModuleRef mlirGen(mlir::MLIRContext& context, Module_ast& moduleAST);
   int genTolvaMLIR();
-  int mlirTranslate(mlir::Operation& op);
 } // namespace toy
