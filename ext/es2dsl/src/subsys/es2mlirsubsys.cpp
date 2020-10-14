@@ -9,6 +9,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopedHashTable.h"
 #include "llvm/Support/raw_ostream.h"
+#include "mlir/EDSC/Builders.h"
 #include "mlir/ExecutionEngine/ExecutionEngine.h"
 #include "mlir/ExecutionEngine/OptUtils.h"
 #include "mlir/IR/AsmState.h"
@@ -127,6 +128,84 @@ def transpose_transpose(x) {
   return make_unique<Module_ast>(move(mdlfns));
 }
 
+
+mlir::OwningModuleRef mlirGenMdl_multiply_transpose(mlir::MLIRContext& _mlirctx) {
+  using namespace std;
+  
+  llvm::StringRef    file         = "dummy.tolva";
+  shared_ptr<string> file_content = make_shared<string>(
+    R"(
+def multiply_transpose(a, b) {
+  return transpose(a) * transpose(b);
+}
+
+def main() {
+  var a<2, 3> = [[1, 2, 3], [4, 5, 6]];
+  var b<2, 3> = [1, 2, 3, 4, 5, 6];
+  var c = multiply_transpose(a, b);
+  var d = multiply_transpose(b, a);
+  print(d);
+}
+)");
+
+  using mlir::edsc::ValueBuilder;
+  using mlir::edsc::OperationBuilder;
+  using mlir::edsc::ScopedContext;
+  using mlir::FileLineColLoc;
+  using mlir::UnknownLoc;
+  using mlir::FuncOp;
+  using mlir::FloatType;
+  using mlir::UnrankedTensorType;
+  using mlir::ModuleOp;
+  using llvm::makeArrayRef;
+  ModuleOp mlirMdl = ModuleOp::create(UnknownLoc::get(&_mlirctx));
+
+  {
+    FuncOp f = FuncOp::create(FileLineColLoc::get(file, 2, 1, &_mlirctx), "multiply_transpose",
+      mlir::FunctionType::get({UnrankedTensorType::get(FloatType::getF64(&_mlirctx)),
+                               UnrankedTensorType::get(FloatType::getF64(&_mlirctx))},
+      { UnrankedTensorType::get(FloatType::getF64(&_mlirctx)) }, 
+      &_mlirctx));
+    f.addEntryBlock();
+    {
+      mlir::OpBuilder           builder(f.getBody());
+      ScopedContext scope(builder, f.getLoc());
+      ReturnOp ret = OperationBuilder<ReturnOp>(
+        makeArrayRef<mlir::Value>(
+          ValueBuilder<MulOp>(
+            ValueBuilder<TransposeOp>(f.getArgument(0)),
+            ValueBuilder<TransposeOp>(f.getArgument(1))
+          )
+        ));
+      //mlir::Value trans = ValueBuilder<TransposeOp>(f.getArgument(0));
+      //mlir::Value mul = ValueBuilder<MulOp>(
+      //  ValueBuilder<TransposeOp>(f.getArgument(0)),
+      //  ValueBuilder<TransposeOp>(f.getArgument(1))
+      //  );
+      //OperationBuilder<ReturnOp>(FileLineColLoc::get(file, 3, 3, &_mlirctx),
+      //  makeArrayRef(
+      //    ValueBuilder<MulOp>(FileLineColLoc::get(file, 3, 3, &_mlirctx),
+      //      ValueBuilder<TransposeOp>(FileLineColLoc::get(file, 3, 10, &_mlirctx), f.getArgument(0)),
+      //      ValueBuilder<TransposeOp>(FileLineColLoc::get(file, 3, 25, &_mlirctx), f.getArgument(1))
+      //    )
+      //  )
+      //);
+    }
+    mlirMdl.push_back(f);
+  }
+
+
+  // Verify the module after we have finished constructing it, this will
+  // check / the structural properties of the IR and invoke any specific
+  // verifiers we / have on the Toy operations.
+  if (failed(mlir::verify(mlirMdl))) {
+    mlirMdl.emitError("module verification error");
+    return nullptr;
+  }
+
+  return mlirMdl;
+}
+
 void dumpTolvaMLIRPass(mlir::OwningModuleRef& _mlirMdl, const char* _passname) {
   // clang-format off
   llvm::outs() << "//------------------------------------------------------------------------------//\n";
@@ -141,9 +220,14 @@ void dumpTolvaMLIRPass(mlir::OwningModuleRef& _mlirMdl, const char* _passname) {
 
 int loadTolvaMLIR(llvm::SourceMgr& sourceMgr, mlir::MLIRContext& context, mlir::OwningModuleRef& module) {
   using namespace std;
-  unique_ptr<Module_ast> tlvmdlast = es2::astGenMdl_transpose_transpose();
-  if (!tlvmdlast) return 6;
-  module = mlirGen(context, *tlvmdlast);
+  if (false) {
+    unique_ptr<Module_ast> tlvmdlast = es2::astGenMdl_transpose_transpose();
+    if (!tlvmdlast) return 6;
+    module = mlirGen(context, *tlvmdlast);
+  }
+  else {
+    module = mlirGenMdl_multiply_transpose(context);
+  }
   return !module ? 1 : 0;
 
   //// Handle '.toy' input to the compiler.
@@ -184,7 +268,7 @@ int es2::genTolvaMLIR() {
   llvm::SourceMgr                  sourceMgr;
   mlir::SourceMgrDiagnosticHandler sourceMgrHandler(sourceMgr, &context);
   if (int error = loadTolvaMLIR(sourceMgr, context, module)) return error;
-
+  
   dumpTolvaMLIRPass(module, "TLVIR (MLIR):");
 
   {
