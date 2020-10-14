@@ -193,13 +193,21 @@ struct ReturnOpLowering : public OpRewritePattern<tolva::ReturnOp> {
 //===----------------------------------------------------------------------===//
 // ToyToAffine RewritePatterns: Transpose operations
 //===----------------------------------------------------------------------===//
-
+/// Lower the `toy.transpose` operation to an affine loop nest.
 struct TransposeOpLowering : public ConversionPattern {
   TransposeOpLowering(MLIRContext* ctx)
     : ConversionPattern(tolva::TransposeOp::getOperationName(), 1, ctx) {}
 
+
+  /// Match and rewrite the given `toy.transpose` operation, with the given
+  /// operands that have been remapped from `tensor<...>` to `memref<...>`.
   LogicalResult matchAndRewrite(Operation* op, ArrayRef<Value> operands, ConversionPatternRewriter& rewriter) const final {
     auto loc = op->getLoc();
+
+    // Call to a helper function that will lower the current operation to a set
+    // of affine loops. We provide a functor that operates on the remapped
+    // operands, as well as the loop induction variables for the inner most
+    // loop body.
     lowerOpToLoops(op, operands, rewriter, [loc](OpBuilder& builder, ValueRange memRefOperands, ValueRange loopIvs) {
       // Generate an adaptor for the remapped operands of the
       // TransposeOp. This allows for using the nice named

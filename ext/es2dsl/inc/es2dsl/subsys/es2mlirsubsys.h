@@ -4,23 +4,37 @@
 // from a Module AST for the Toy language.
 //
 //===----------------------------------------------------------------------===//
-#pragma  once
+#pragma once
 
 #include <memory>
 
 namespace mlir {
-  class MLIRContext;
-  class OwningModuleRef;
-  class Operation;
-} // namespace mlir
+class MLIRContext;
+class OwningModuleRef;
+class Operation;
+}    // namespace mlir
+namespace llvm {
+class SourceMgr;
+}
 
 namespace es2 {
-  struct Module_ast;
+struct Module_ast;
 
-  std::unique_ptr<Module_ast> astGenMdl_multiply_transpose();
-  std::unique_ptr<Module_ast> astGenMdl_transpose_transpose();
+struct DSLSubsys_api {
+  bool bCanonicalizationOnly = false;
+  bool bOptimize             = false;
+  bool bLowerToAffine        = true;
+  bool bLowerToLLVM          = false;
+  bool bDumpLLVMIR           = false;
+  bool bRunJIT               = false;
+
   /// Emit IR for the given Toy moduleAST, returns a newly created MLIR module
   /// or nullptr on failure.
   mlir::OwningModuleRef mlirGen(mlir::MLIRContext& context, Module_ast& moduleAST);
-  int genTolvaMLIR();
-} // namespace toy
+  int                   loadTolvaMLIR(llvm::SourceMgr& sourceMgr, mlir::MLIRContext& context, mlir::OwningModuleRef& module);
+  int                   dumpLLVMIR(mlir::OwningModuleRef& module);
+  int                   runJit(mlir::OwningModuleRef& module);
+  int                   genTolvaMLIR();
+};
+
+}    // namespace es2

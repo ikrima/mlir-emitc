@@ -37,8 +37,9 @@ using llvm::Twine;
 using namespace es2;
 using namespace mlir::tolva;
 
+
 /// Build full Module. A module is a list of function definitions.
-std::unique_ptr<Module_ast> es2::astGenMdl_multiply_transpose() {
+std::unique_ptr<Module_ast> astGenMdl_multiply_transpose() {
   using namespace std;
 
   shared_ptr<string> file         = make_shared<string>("dummy.tolva");
@@ -91,7 +92,7 @@ return ret;
   return make_unique<Module_ast>(move(mdlfns));
 }
 
-std::unique_ptr<Module_ast> es2::astGenMdl_transpose_transpose() {
+std::unique_ptr<Module_ast> astGenMdl_transpose_transpose() {
   using namespace std;
 
   shared_ptr<string> file         = make_shared<string>("dummy.tolva");
@@ -126,7 +127,6 @@ def transpose_transpose(x) {
 
   return make_unique<Module_ast>(move(mdlfns));
 }
-
 
 mlir::OwningModuleRef mlirGenMdl_multiply_transpose(mlir::MLIRContext& _mlirctx) {
   using namespace std;
@@ -228,10 +228,10 @@ void dumpTolvaMLIRPass(mlir::OwningModuleRef& _mlirMdl, const char* _passname) {
 }
 
 
-int loadTolvaMLIR(llvm::SourceMgr& sourceMgr, mlir::MLIRContext& context, mlir::OwningModuleRef& module) {
+int DSLSubsys_api::loadTolvaMLIR(llvm::SourceMgr& sourceMgr, mlir::MLIRContext& context, mlir::OwningModuleRef& module) {
   using namespace std;
   if (false) {
-    unique_ptr<Module_ast> tlvmdlast = es2::astGenMdl_transpose_transpose();
+    unique_ptr<Module_ast> tlvmdlast = astGenMdl_transpose_transpose();
     if (!tlvmdlast) return 6;
     module = mlirGen(context, *tlvmdlast);
   }
@@ -243,6 +243,8 @@ int loadTolvaMLIR(llvm::SourceMgr& sourceMgr, mlir::MLIRContext& context, mlir::
 
 
 int es2::genTolvaMLIR() {
+
+int DSLSubsys_api::genTolvaMLIR() {
   using namespace std;
   mlir::MLIRContext context(/*loadAllDialects=*/false);
   // Load our Dialect in this MLIR Context.
@@ -253,9 +255,7 @@ int es2::genTolvaMLIR() {
   if (int error = loadTolvaMLIR(sourceMgr, context, module)) return error;
 
   dumpTolvaMLIRPass(module, "TLVIR (MLIR):");
-  const bool bCanonicalizationOnly = false;
-  const bool bEnableOpt            = true;
-  const bool bEnableLowering       = false;
+
 
   {
     mlir::PassManager pm(&context);
@@ -273,7 +273,7 @@ int es2::genTolvaMLIR() {
     }
 
     // Optimization passes
-    if (bEnableOpt || bEnableLowering) {
+    if (bOptimize || bLowerToAffine) {
       // Inline all functions into main and then delete them.
       pm.addPass(mlir::createInlinerPass());
 
@@ -285,7 +285,7 @@ int es2::genTolvaMLIR() {
       optPM.addPass(mlir::createCSEPass());
     }
 
-    if (bEnableLowering) {
+    if (bLowerToAffine) {
       // Partially lower the toy dialect with a few cleanups afterwards.
       pm.addPass(mlir::tolva::createLowerToAffinePass());
 
@@ -294,7 +294,7 @@ int es2::genTolvaMLIR() {
       optPM.addPass(mlir::createCSEPass());
 
       // Add optimizations if enabled.
-      if (bEnableOpt) {
+      if (bOptimize) {
         optPM.addPass(mlir::createLoopFusionPass());
         optPM.addPass(mlir::createMemRefDataFlowOptPass());
       }
@@ -306,9 +306,10 @@ int es2::genTolvaMLIR() {
     dumpTolvaMLIRPass(module, "TLVIR (Opt):");
   }
 
+
 #if 0
-  failed(mlir::emitc::TranslateToCpp(*module->getOperation(), llvm::outs(), false));
-  {
+failed(mlir::emitc::TranslateToCpp(*module->getOperation(), llvm::outs(), false));
+{
 
     // Check to see what granularity of MLIR we are compiling to.
     bool isLoweringToCpp = true;
@@ -322,9 +323,6 @@ int es2::genTolvaMLIR() {
       return 4;
 
     module->dump();
-    return 0;
-  }
-#endif    // 0
-
   return 0;
 }
+#endif    // 0

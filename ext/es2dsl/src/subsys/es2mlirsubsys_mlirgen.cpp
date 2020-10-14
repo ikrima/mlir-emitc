@@ -396,6 +396,6 @@ struct TLVIRGenImpl {
 
 }    // namespace es2
 
-mlir::OwningModuleRef es2::mlirGen(mlir::MLIRContext& context, Module_ast& moduleAST) {
+mlir::OwningModuleRef DSLSubsys_api::mlirGen(mlir::MLIRContext& context, Module_ast& moduleAST) {
   return TLVIRGenImpl(context).mlirGen(moduleAST);
 }
