@@ -164,11 +164,16 @@ def MulOp : Tolva_Op<"mul",[NoSideEffect, DeclareOpInterfaceMethods<ShapeInferen
 }
 
 def PrintOp : Tolva_Op<"print"> {
-  let arguments = (ins F64Tensor:$input);
+  let summary = "print operation";
+  let description = [{
+    The "print" builtin operation prints a given input tensor, and produces
+    no results.
+  }];
 
-  // In the following format we have two directives, `attr-dict` and `type`.
-  // These correspond to the attribute dictionary and the type of a given
-  // variable represectively.
+  // The print operation takes an input tensor to print.
+  // We also allow a F64MemRef to enable interop during partial lowering.
+  let arguments = (ins AnyTypeOf<[F64Tensor, F64MemRef]>:$input);
+
   let assemblyFormat = "$input attr-dict `:` type($input)";
 }
 

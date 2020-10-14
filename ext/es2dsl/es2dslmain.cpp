@@ -59,8 +59,7 @@ static cl::opt<enum Action> emitAction(
     cl::values(clEnumValN(DumpAST, "ast", "output the AST dump")),
     cl::values(clEnumValN(DumpMLIR, "mlir", "output the MLIR dump")));
 
-int main(int argc, char **argv) {
-  mlir::registerEmitCTranslation();
+int main(int argc, char **argv) {  
   mlir::registerAllDialects();
 
   // Register any command line options.

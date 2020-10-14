@@ -254,22 +254,27 @@ int es2::genTolvaMLIR() {
   if (int error = loadTolvaMLIR(sourceMgr, context, module)) return error;
 
   dumpTolvaMLIRPass(module, "TLVIR (MLIR):");
+  const bool bCanonicalizationOnly = false;
+  const bool bEnableOpt            = true;
+  const bool bEnableLowering       = false;
 
   {
     mlir::PassManager pm(&context);
     // Apply any generic pass manager command line options and run the pipeline.
     applyPassManagerCLOptions(pm);
 
-    if (false) {
-      // Canonicalization only
+    // Canonicalization only
+    if (bCanonicalizationOnly) {
       pm.addNestedPass<mlir::FuncOp>(mlir::createCanonicalizerPass());
       if (mlir::failed(pm.run(*module))) {
         return 4;
       }
       dumpTolvaMLIRPass(module, "TLVIR (Canonical):");
+      return 0;
     }
-    else {
-      // Optimization passes
+
+    // Optimization passes
+    if (bEnableOpt || bEnableLowering) {
       // Inline all functions into main and then delete them.
       pm.addPass(mlir::createInlinerPass());
 
@@ -279,12 +284,27 @@ int es2::genTolvaMLIR() {
       optPM.addPass(mlir::tolva::createShapeInferencePass());
       optPM.addPass(mlir::createCanonicalizerPass());    // Add a run of the canonicalizer to optimize the mlir module.
       optPM.addPass(mlir::createCSEPass());
-
-      if (mlir::failed(pm.run(*module))) {
-        return 4;
-      }
-      dumpTolvaMLIRPass(module, "TLVIR (Opt):");
     }
+
+    if (bEnableLowering) {
+      // Partially lower the toy dialect with a few cleanups afterwards.
+      pm.addPass(mlir::tolva::createLowerToAffinePass());
+
+      mlir::OpPassManager& optPM = pm.nest<mlir::FuncOp>();
+      optPM.addPass(mlir::createCanonicalizerPass());
+      optPM.addPass(mlir::createCSEPass());
+
+      // Add optimizations if enabled.
+      if (bEnableOpt) {
+        optPM.addPass(mlir::createLoopFusionPass());
+        optPM.addPass(mlir::createMemRefDataFlowOptPass());
+      }
+    }
+
+    if (mlir::failed(pm.run(*module))) {
+      return 4;
+    }
+    dumpTolvaMLIRPass(module, "TLVIR (Opt):");
   }
 
 #if 0

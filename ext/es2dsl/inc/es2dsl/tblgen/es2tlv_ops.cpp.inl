@@ -916,8 +916,8 @@ void PrintOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mli
     auto valueGroup0 = getODSOperands(0);
     for (::mlir::Value v : valueGroup0) {
       (void)v;
-      if (!(((v.getType().isa<::mlir::TensorType>())) && ((v.getType().cast<::mlir::ShapedType>().getElementType().isF64())))) {
-        return emitOpError("operand #") << index << " must be tensor of 64-bit float values, but got " << v.getType();
+      if (!((((v.getType().isa<::mlir::TensorType>())) && ((v.getType().cast<::mlir::ShapedType>().getElementType().isF64()))) || (((v.getType().isa<::mlir::MemRefType>())) && ((v.getType().cast<::mlir::ShapedType>().getElementType().isF64()))))) {
+        return emitOpError("operand #") << index << " must be tensor of 64-bit float values or memref of 64-bit float values, but got " << v.getType();
       }
       ++index;
     }

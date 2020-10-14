@@ -11,14 +11,15 @@ add_toy_chapter(es2dsl
   src/dialect/es2tolvadialect.cpp
   src/dialect/es2tolvaops.cpp
   src/dialect/es2mlirpasses.cpp
+  src/dialect/es2tlv_lowertoaffine.cpp
   src/subsys/es2mlirsubsys.cpp
   src/subsys/es2mlirsubsys_mlirgen.cpp
   )
 
-get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/include/)
+get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
 target_link_libraries(es2dsl
   PRIVATE
     ${dialect_libs}
