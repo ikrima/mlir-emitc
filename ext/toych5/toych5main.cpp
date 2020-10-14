@@ -13,11 +13,13 @@
 #include "toy/Dialect.h"
 #include "toy/MLIRGen.h"
 #include "toy/Parser.h"
+#include "toy/Passes.h"
 
 #include "mlir/IR/AsmState.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Module.h"
 #include "mlir/IR/Verifier.h"
+#include "mlir/InitAllDialects.h"
 #include "mlir/Parser.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
@@ -48,12 +50,14 @@ static cl::opt<enum InputType> inputType(
                           "load the input file as an MLIR file")));
 
 namespace {
-enum Action { None, DumpAST, DumpMLIR };
+enum Action { None, DumpAST, DumpMLIR, DumpMLIRAffine };
 }
 static cl::opt<enum Action> emitAction(
     "emit", cl::desc("Select the kind of output desired"),
     cl::values(clEnumValN(DumpAST, "ast", "output the AST dump")),
-    cl::values(clEnumValN(DumpMLIR, "mlir", "output the MLIR dump")));
+    cl::values(clEnumValN(DumpMLIR, "mlir", "output the MLIR dump")),
+    cl::values(clEnumValN(DumpMLIRAffine, "mlir-affine",
+                          "output the MLIR dump after affine lowering")));
 
 static cl::opt<bool> enableOpt("opt", cl::desc("Enable optimizations"));
 
@@ -112,16 +116,42 @@ int dumpMLIR() {
   if (int error = loadMLIR(sourceMgr, context, module))
     return error;
 
-  if (enableOpt) {
-    mlir::PassManager pm(&context);
-    // Apply any generic pass manager command line options and run the pipeline.
-    applyPassManagerCLOptions(pm);
+  mlir::PassManager pm(&context);
+  // Apply any generic pass manager command line options and run the pipeline.
+  applyPassManagerCLOptions(pm);
 
-    // Add a run of the canonicalizer to optimize the mlir module.
-    pm.addNestedPass<mlir::FuncOp>(mlir::createCanonicalizerPass());
-    if (mlir::failed(pm.run(*module)))
-      return 4;
+  // Check to see what granularity of MLIR we are compiling to.
+  bool isLoweringToAffine = emitAction >= Action::DumpMLIRAffine;
+
+  if (enableOpt || isLoweringToAffine) {
+    // Inline all functions into main and then delete them.
+    pm.addPass(mlir::createInlinerPass());
+
+    // Now that there is only one function, we can infer the shapes of each of
+    // the operations.
+    mlir::OpPassManager &optPM = pm.nest<mlir::FuncOp>();
+    optPM.addPass(mlir::toy::createShapeInferencePass());
+    optPM.addPass(mlir::createCanonicalizerPass());
+    optPM.addPass(mlir::createCSEPass());
   }
+
+  if (isLoweringToAffine) {
+    // Partially lower the toy dialect with a few cleanups afterwards.
+    pm.addPass(mlir::toy::createLowerToAffinePass());
+
+    mlir::OpPassManager &optPM = pm.nest<mlir::FuncOp>();
+    optPM.addPass(mlir::createCanonicalizerPass());
+    optPM.addPass(mlir::createCSEPass());
+
+    // Add optimizations if enabled.
+    if (enableOpt) {
+      optPM.addPass(mlir::createLoopFusionPass());
+      optPM.addPass(mlir::createMemRefDataFlowOptPass());
+    }
+  }
+
+  if (mlir::failed(pm.run(*module)))
+    return 4;
 
   module->dump();
   return 0;
@@ -142,6 +172,8 @@ int dumpAST() {
 }
 
 int main(int argc, char **argv) {
+  mlir::registerAllDialects();
+
   // Register any command line options.
   mlir::registerAsmPrinterCLOptions();
   mlir::registerMLIRContextCLOptions();
@@ -153,6 +185,7 @@ int main(int argc, char **argv) {
   case Action::DumpAST:
     return dumpAST();
   case Action::DumpMLIR:
+  case Action::DumpMLIRAffine:
     return dumpMLIR();
   default:
     llvm::errs() << "No action specified (parsing only?), use -emit=<action>\n";
