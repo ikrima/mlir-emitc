@@ -131,7 +131,7 @@ def transpose_transpose(x) {
 
 mlir::OwningModuleRef mlirGenMdl_multiply_transpose(mlir::MLIRContext& _mlirctx) {
   using namespace std;
-  
+
   llvm::StringRef    file         = "dummy.tolva";
   shared_ptr<string> file_content = make_shared<string>(
     R"(
@@ -148,52 +148,63 @@ def main() {
 }
 )");
 
-  using mlir::edsc::ValueBuilder;
+  using llvm::makeArrayRef;
+  using mlir::DenseElementsAttr;
+  using mlir::FileLineColLoc;
+  using mlir::FloatType;
+  using mlir::FuncOp;
+  using mlir::ModuleOp;
+  using mlir::RankedTensorType;
+  using mlir::UnknownLoc;
+  using mlir::UnrankedTensorType;
   using mlir::edsc::OperationBuilder;
   using mlir::edsc::ScopedContext;
-  using mlir::FileLineColLoc;
-  using mlir::UnknownLoc;
-  using mlir::FuncOp;
-  using mlir::FloatType;
-  using mlir::UnrankedTensorType;
-  using mlir::ModuleOp;
-  using llvm::makeArrayRef;
+  using mlir::edsc::ValueBuilder;
   ModuleOp mlirMdl = ModuleOp::create(UnknownLoc::get(&_mlirctx));
 
+  // clang-format off
+  // multiply_transpose
   {
     FuncOp f = FuncOp::create(FileLineColLoc::get(file, 2, 1, &_mlirctx), "multiply_transpose",
-      mlir::FunctionType::get({UnrankedTensorType::get(FloatType::getF64(&_mlirctx)),
-                               UnrankedTensorType::get(FloatType::getF64(&_mlirctx))},
-      { UnrankedTensorType::get(FloatType::getF64(&_mlirctx)) }, 
-      &_mlirctx));
+      mlir::FunctionType::get(
+        {UnrankedTensorType::get(FloatType::getF64(&_mlirctx)), UnrankedTensorType::get(FloatType::getF64(&_mlirctx))},
+        {UnrankedTensorType::get(FloatType::getF64(&_mlirctx))}, &_mlirctx));
     f.addEntryBlock();
     {
-      mlir::OpBuilder           builder(f.getBody());
-      ScopedContext scope(builder, f.getLoc());
-      ReturnOp ret = OperationBuilder<ReturnOp>(
-        makeArrayRef<mlir::Value>(
-          ValueBuilder<MulOp>(
-            ValueBuilder<TransposeOp>(f.getArgument(0)),
-            ValueBuilder<TransposeOp>(f.getArgument(1))
-          )
-        ));
-      //mlir::Value trans = ValueBuilder<TransposeOp>(f.getArgument(0));
-      //mlir::Value mul = ValueBuilder<MulOp>(
-      //  ValueBuilder<TransposeOp>(f.getArgument(0)),
-      //  ValueBuilder<TransposeOp>(f.getArgument(1))
-      //  );
-      //OperationBuilder<ReturnOp>(FileLineColLoc::get(file, 3, 3, &_mlirctx),
-      //  makeArrayRef(
-      //    ValueBuilder<MulOp>(FileLineColLoc::get(file, 3, 3, &_mlirctx),
-      //      ValueBuilder<TransposeOp>(FileLineColLoc::get(file, 3, 10, &_mlirctx), f.getArgument(0)),
-      //      ValueBuilder<TransposeOp>(FileLineColLoc::get(file, 3, 25, &_mlirctx), f.getArgument(1))
-      //    )
-      //  )
-      //);
+      mlir::OpBuilder builder(f.getBody());
+      ScopedContext   scope(builder, f.getLoc());
+      ReturnOp        ret = OperationBuilder<ReturnOp>(makeArrayRef<mlir::Value>(
+        ValueBuilder<MulOp>(ValueBuilder<TransposeOp>(f.getArgument(0)), ValueBuilder<TransposeOp>(f.getArgument(1)))));
+    }
+    f.setVisibility(mlir::FuncOp::Visibility::Private);
+    mlirMdl.push_back(f);
+  }
+
+  // main
+  {
+    FuncOp f = FuncOp::create(FileLineColLoc::get(file, 2, 1, &_mlirctx), "main", mlir::FunctionType::get({}, {}, &_mlirctx));
+    f.addEntryBlock();
+    {
+      mlir::OpBuilder  builder(f.getBody());
+      ScopedContext    scope(builder, f.getLoc());
+      mlir::Type       elementType = FloatType::getF64(&_mlirctx);
+      RankedTensorType dataType    = RankedTensorType::get({2, 3}, FloatType::getF64(&_mlirctx));
+
+      mlir::Value vara = ValueBuilder<ReshapeOp>(
+        dataType, ValueBuilder<ConstantOp>(dataType, DenseElementsAttr::get(dataType, {1.0, 2.0, 3.0, 4.0, 5.0, 6.0})));
+      mlir::Value varb = ValueBuilder<ReshapeOp>(
+        dataType, ValueBuilder<ConstantOp>(dataType, DenseElementsAttr::get(dataType, {1.0, 2.0, 3.0, 4.0, 5.0, 6.0})));
+      mlir::Value varc = ValueBuilder<GenericCallOp>("multiply_transpose", makeArrayRef<mlir::Value>({vara, varb}));
+      mlir::Value vard = ValueBuilder<GenericCallOp>("multiply_transpose", makeArrayRef<mlir::Value>({varb, vara}));
+      
+      PrintOp printop = OperationBuilder<PrintOp>(vard);
+
+      OperationBuilder<ReturnOp>();
     }
     mlirMdl.push_back(f);
   }
 
+  // clang-format on
 
   // Verify the module after we have finished constructing it, this will
   // check / the structural properties of the IR and invoke any specific
@@ -229,33 +240,6 @@ int loadTolvaMLIR(llvm::SourceMgr& sourceMgr, mlir::MLIRContext& context, mlir::
     module = mlirGenMdl_multiply_transpose(context);
   }
   return !module ? 1 : 0;
-
-  //// Handle '.toy' input to the compiler.
-  // if (inputType != InputType::MLIR &&
-  //  !llvm::StringRef(inputFilename).endswith(".mlir")) {
-  //  auto moduleAST = parseInputFile(inputFilename);
-  //  if (!moduleAST)
-  //    return 6;
-  //  module = mlirGen(context, *moduleAST);
-  //  return !module ? 1 : 0;
-  //}
-
-  //// Otherwise, the input is '.mlir'.
-  // llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> fileOrErr =
-  //  llvm::MemoryBuffer::getFileOrSTDIN(inputFilename);
-  // if (std::error_code EC = fileOrErr.getError()) {
-  //  llvm::errs() << "Could not open input file: " << EC.message() << "\n";
-  //  return -1;
-  //}
-
-  //// Parse the input mlir.
-  // sourceMgr.AddNewSourceBuffer(std::move(*fileOrErr), llvm::SMLoc());
-  // module = mlir::parseSourceFile(sourceMgr, &context);
-  // if (!module) {
-  //  llvm::errs() << "Error can't load file " << inputFilename << "\n";
-  //  return 3;
-  //}
-  return 0;
 }
 
 
@@ -268,7 +252,7 @@ int es2::genTolvaMLIR() {
   llvm::SourceMgr                  sourceMgr;
   mlir::SourceMgrDiagnosticHandler sourceMgrHandler(sourceMgr, &context);
   if (int error = loadTolvaMLIR(sourceMgr, context, module)) return error;
-  
+
   dumpTolvaMLIRPass(module, "TLVIR (MLIR):");
 
   {
@@ -276,18 +260,16 @@ int es2::genTolvaMLIR() {
     // Apply any generic pass manager command line options and run the pipeline.
     applyPassManagerCLOptions(pm);
 
-    // Canonicalization only
-    {
+    if (false) {
+      // Canonicalization only
       pm.addNestedPass<mlir::FuncOp>(mlir::createCanonicalizerPass());
       if (mlir::failed(pm.run(*module))) {
         return 4;
       }
       dumpTolvaMLIRPass(module, "TLVIR (Canonical):");
     }
-
-#if 0
-    // Optimization passes
-    {
+    else {
+      // Optimization passes
       // Inline all functions into main and then delete them.
       pm.addPass(mlir::createInlinerPass());
 
@@ -301,9 +283,8 @@ int es2::genTolvaMLIR() {
       if (mlir::failed(pm.run(*module))) {
         return 4;
       }
-      dumpTolvaMLIRPass(module, "TLVIR (Canonical):");
+      dumpTolvaMLIRPass(module, "TLVIR (Opt):");
     }
-#endif
   }
 
 #if 0
