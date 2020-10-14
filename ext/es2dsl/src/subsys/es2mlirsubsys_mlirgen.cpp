@@ -1,6 +1,6 @@
 #include "es2dsl/subsys/es2mlirsubsys.h"
 
-#include "es2dsl/dialect/es2mlirpasses.h"
+#include "es2dsl/dialect/es2tolvapasses.h"
 #include "es2dsl/dialect/es2tolvadialect.h"
 #include "es2dsl/dialect/es2tolvaops.h"
 #include "es2dsl/subsys/es2mlirsubsys.h"

@@ -1,6 +1,6 @@
 #include "es2dsl/subsys/es2mlirsubsys.h"
 
-#include "es2dsl/dialect/es2mlirpasses.h"
+#include "es2dsl/dialect/es2tolvapasses.h"
 #include "es2dsl/dialect/es2tolvadialect.h"
 #include "es2dsl/dialect/es2tolvaops.h"
 #include "es2dsl/subsys/es2mlirsubsys.h"
@@ -357,18 +357,18 @@ int DSLSubsys_api::genTolvaMLIR() {
 failed(mlir::emitc::TranslateToCpp(*module->getOperation(), llvm::outs(), false));
 {
 
-    // Check to see what granularity of MLIR we are compiling to.
-    bool isLoweringToCpp = true;
+  // Check to see what granularity of MLIR we are compiling to.
+  bool isLoweringToCpp = true;
 
-    if (isLoweringToCpp) {
-      // Finish lowering the toy IR to the LLVM dialect.
-      pm.addPass(mlir::tolva::createLowerToCppPass());
-    }
+  if (isLoweringToCpp) {
+    // Finish lowering the toy IR to the LLVM dialect.
+    pm.addPass(mlir::tolva::createLowerToCppPass());
+  }
 
-    if (mlir::failed(pm.run(*module)))
-      return 4;
+  if (mlir::failed(pm.run(*module)))
+    return 4;
 
-    module->dump();
+  module->dump();
   return 0;
 }
 #endif    // 0
