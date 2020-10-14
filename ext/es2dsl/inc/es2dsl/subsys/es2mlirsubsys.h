@@ -22,6 +22,6 @@ namespace es2 {
   /// Emit IR for the given Toy moduleAST, returns a newly created MLIR module
   /// or nullptr on failure.
   mlir::OwningModuleRef mlirGen(mlir::MLIRContext& context, Module_ast& moduleAST);
-  int dumpTolvaMLIR();
+  int genTolvaMLIR();
   int mlirTranslate(mlir::Operation& op);
 } // namespace toy

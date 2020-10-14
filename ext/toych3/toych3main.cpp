@@ -71,7 +71,7 @@ std::unique_ptr<toy::ModuleAST> parseInputFile(llvm::StringRef filename) {
   return parser.parseModule();
 }
 
-int loadMLIR(llvm::SourceMgr &sourceMgr, mlir::MLIRContext &context,
+int loadTolvaMLIR(llvm::SourceMgr &sourceMgr, mlir::MLIRContext &context,
              mlir::OwningModuleRef &module) {
   // Handle '.toy' input to the compiler.
   if (inputType != InputType::MLIR &&
@@ -109,7 +109,7 @@ int dumpMLIR() {
   mlir::OwningModuleRef module;
   llvm::SourceMgr sourceMgr;
   mlir::SourceMgrDiagnosticHandler sourceMgrHandler(sourceMgr, &context);
-  if (int error = loadMLIR(sourceMgr, context, module))
+  if (int error = loadTolvaMLIR(sourceMgr, context, module))
     return error;
 
   if (enableOpt) {

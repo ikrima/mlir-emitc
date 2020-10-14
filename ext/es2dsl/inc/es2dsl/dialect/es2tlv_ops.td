@@ -1,7 +1,7 @@
 #ifndef TOLVA_DIALECT_TOLVA_OPS
 #define TOLVA_DIALECT_TOLVA_OPS
 
-include "es2dsl/dialect/es2tolvabase.td"
+include "es2dsl/dialect/es2tlv_base.td"
 include "mlir/IR/OpBase.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 
@@ -213,7 +213,7 @@ def ReturnOp : Tolva_Op<"return", [NoSideEffect, HasParent<"FuncOp">,
   let verifier = [{ return ::verify(*this); }];
 }
 
-def TransposeOp : Tolva_Op<"transpose"> {
+def TransposeOp : Tolva_Op<"transpose", [NoSideEffect]> {
   let summary = "transpose operation";
 
   let arguments = (ins F64Tensor:$input);
@@ -222,6 +222,9 @@ def TransposeOp : Tolva_Op<"transpose"> {
   let assemblyFormat = [{
     `(` $input `:` type($input) `)` attr-dict `to` type(results)
   }];
+
+  // Enable registering canonicalization patterns with this operation.
+  let hasCanonicalizer = 1;
 
   // Allow building a TransposeOp with from the input operand.
   let builders = [

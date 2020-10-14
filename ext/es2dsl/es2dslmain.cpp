@@ -70,7 +70,7 @@ int main(int argc, char **argv) {
 
   cl::ParseCommandLineOptions(argc, argv, "toy compiler\n");
 
-  es2::dumpTolvaMLIR();
+  es2::genTolvaMLIR();
 
   return 0;
 }

@@ -1263,6 +1263,8 @@ void TransposeOp::build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, :
   return ::verify(*this);
 }
 
+
+
 ::mlir::ParseResult TransposeOp::parse(::mlir::OpAsmParser &parser, ::mlir::OperationState &result) {
   ::mlir::OpAsmParser::OperandType inputRawOperands[1];
   ::llvm::ArrayRef<::mlir::OpAsmParser::OperandType> inputOperands(inputRawOperands);  ::llvm::SMLoc inputOperandsLoc;
@@ -1308,6 +1310,10 @@ void TransposeOp::print(::mlir::OpAsmPrinter &p) {
   p << " " << "to";
   p << " ";
   p << getOperation()->getResultTypes();
+}
+
+void TransposeOp::getEffects(::mlir::SmallVectorImpl<::mlir::SideEffects::EffectInstance<::mlir::MemoryEffects::Effect>> &effects) {
+
 }
 
 } // namespace tolva

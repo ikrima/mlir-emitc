@@ -396,7 +396,7 @@ struct TLVIRGenImpl {
 std::unique_ptr<Module_ast> es2::astGenMdl_multiply_transpose() {
   using namespace std;
 
-  shared_ptr<string> file         = make_shared<string>("D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.tolva");
+  shared_ptr<string> file         = make_shared<string>("dummy.tolva");
   shared_ptr<string> file_content = make_shared<string>(
     R"(
 def multiply_transpose(a, b) {
@@ -449,7 +449,7 @@ return ret;
 std::unique_ptr<Module_ast> es2::astGenMdl_transpose_transpose() {
   using namespace std;
 
-  shared_ptr<string> file         = make_shared<string>("D:/ikrima/src/personal/tolva/code/mlir-emitc/es2dsl/test/dummy.tolva");
+  shared_ptr<string> file         = make_shared<string>("dummy.tolva");
   shared_ptr<string> file_content = make_shared<string>(
     R"(
 def transpose_transpose(x) {
@@ -486,7 +486,7 @@ mlir::OwningModuleRef es2::mlirGen(mlir::MLIRContext& context, Module_ast& modul
   return TLVIRGenImpl(context).mlirGen(moduleAST);
 }
 
-int loadMLIR(llvm::SourceMgr& sourceMgr, mlir::MLIRContext& context, mlir::OwningModuleRef& module) {
+int loadTolvaMLIR(llvm::SourceMgr& sourceMgr, mlir::MLIRContext& context, mlir::OwningModuleRef& module) {
   using namespace std;
   unique_ptr<Module_ast> tlvmdlast = es2::astGenMdl_transpose_transpose();
   if (!tlvmdlast) return 6;
@@ -521,7 +521,18 @@ int loadMLIR(llvm::SourceMgr& sourceMgr, mlir::MLIRContext& context, mlir::Ownin
   return 0;
 }
 
-int es2::dumpTolvaMLIR() {
+void dumpTolvaMLIRPass(mlir::OwningModuleRef& _mlirMdl, const char* _passname) {
+  // clang-format off
+  llvm::outs() << "//------------------------------------------------------------------------------//\n";
+  llvm::outs() << _passname << "\n";
+  llvm::outs() << "//------------------------------------------------------------------------------//\n";
+  _mlirMdl->dump();
+  llvm::outs() << "\n\n";
+  llvm::outs() << "//------------------------------------------------------------------------------//\n\n\n";
+  // clang-format on
+}
+
+int es2::genTolvaMLIR() {
   using namespace std;
   mlir::MLIRContext context(/*loadAllDialects=*/false);
   // Load our Dialect in this MLIR Context.
@@ -529,21 +540,14 @@ int es2::dumpTolvaMLIR() {
   mlir::OwningModuleRef            module;
   llvm::SourceMgr                  sourceMgr;
   mlir::SourceMgrDiagnosticHandler sourceMgrHandler(sourceMgr, &context);
-  if (int error = loadMLIR(sourceMgr, context, module)) return error;
+  if (int error = loadTolvaMLIR(sourceMgr, context, module)) return error;
 
-  // clang-format off
-  llvm::outs() << "//------------------------------------------------------------------------------//\n";
-  llvm::outs() << "TLVIR:\n";
-  llvm::outs() << "//------------------------------------------------------------------------------//\n";
-  module->dump();
-  llvm::outs() << "\n\n";
-  llvm::outs() << "//------------------------------------------------------------------------------//\n\n\n";
-  // clang-format on
+  dumpTolvaMLIRPass(module, "TLVIR (MLIR):");
 
 #if 0
-  mlir::PassManager pm(&context);
-  // Apply any generic pass manager command line options and run the pipeline.
-  applyPassManagerCLOptions(pm);
+    mlir::PassManager pm(&context);
+    // Apply any generic pass manager command line options and run the pipeline.
+    applyPassManagerCLOptions(pm);
 
   mlirTranslate(*module->getOperation());
   {
