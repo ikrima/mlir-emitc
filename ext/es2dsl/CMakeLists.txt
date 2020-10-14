@@ -8,10 +8,12 @@ set(LLVM_LINK_COMPONENTS
 
 add_toy_chapter(es2dsl
   es2dslmain.cpp
-  src/dialect/es2tolvadialect.cpp
-  src/dialect/es2tolvaops.cpp
-  src/dialect/es2mlirpasses.cpp
+  src/dialect/es2tlv_dialect.cpp
+  src/dialect/es2tlv_ops.cpp
+  src/dialect/es2tlv_lowertocpp.cpp
+  src/dialect/es2tlv_canonical.cpp
   src/dialect/es2tlv_lowertoaffine.cpp
+  src/dialect/es2tlv_shapeinfer.cpp
   src/subsys/es2mlirsubsys.cpp
   src/subsys/es2mlirsubsys_mlirgen.cpp
   )
