@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef TOLVA_DIALECT_TOLVA_BASE
-#define TOLVA_DIALECT_TOLVA_BASE
+#ifndef TOLVA_DIALECT_TLV_BASE
+#define TOLVA_DIALECT_TLV_BASE
 
 include "mlir/IR/OpBase.td"
 
@@ -23,6 +23,18 @@ def Tolva_Dialect : Dialect {
   let summary = [{
     A dialect used for types common across Tolva subdialects.
   }];
+}
+
+def ShapeInferenceOpInterface : OpInterface<"ShapeInference"> {
+  let description = [{
+    Interface to access a registered method to infer the return types for an
+    operation that can be used during type inference.
+  }];
+
+  let methods = [
+    InterfaceMethod<"Infer and set the output shape for the current operation.",
+                    "void", "inferShapes">
+  ];
 }
 
 

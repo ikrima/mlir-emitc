@@ -15,6 +15,11 @@ class AddOp;
 } // namespace mlir
 namespace mlir {
 namespace tolva {
+class CastOp;
+} // namespace tolva
+} // namespace mlir
+namespace mlir {
+namespace tolva {
 class ConstantOp;
 } // namespace tolva
 } // namespace mlir
@@ -74,7 +79,7 @@ private:
   ::mlir::ValueRange odsOperands;
   ::mlir::DictionaryAttr odsAttrs;
 };
-class AddOp : public ::mlir::Op<AddOp, ::mlir::OpTrait::ZeroRegion, ::mlir::OpTrait::OneResult, ::mlir::OpTrait::ZeroSuccessor, ::mlir::OpTrait::NOperands<2>::Impl> {
+class AddOp : public ::mlir::Op<AddOp, ::mlir::OpTrait::ZeroRegion, ::mlir::OpTrait::OneResult, ::mlir::OpTrait::ZeroSuccessor, ::mlir::OpTrait::NOperands<2>::Impl, ::mlir::MemoryEffectOpInterface::Trait, ShapeInference::Trait> {
 public:
   using Op::Op;
   using Adaptor = AddOpAdaptor;
@@ -94,6 +99,50 @@ public:
   static ::mlir::ParseResult parse(::mlir::OpAsmParser &parser, ::mlir::OperationState &result);
   void print(::mlir::OpAsmPrinter &p);
   ::mlir::LogicalResult verify();
+  void inferShapes();
+  void getEffects(::mlir::SmallVectorImpl<::mlir::SideEffects::EffectInstance<::mlir::MemoryEffects::Effect>> &effects);
+};
+} // namespace tolva
+} // namespace mlir
+namespace mlir {
+namespace tolva {
+
+//===----------------------------------------------------------------------===//
+// ::mlir::tolva::CastOp declarations
+//===----------------------------------------------------------------------===//
+
+class CastOpAdaptor {
+public:
+  CastOpAdaptor(::mlir::ValueRange values, ::mlir::DictionaryAttr attrs = nullptr);
+  CastOpAdaptor(CastOp&op);
+  std::pair<unsigned, unsigned> getODSOperandIndexAndLength(unsigned index);
+  ::mlir::ValueRange getODSOperands(unsigned index);
+  ::mlir::Value input();
+  ::mlir::LogicalResult verify(::mlir::Location loc);
+
+private:
+  ::mlir::ValueRange odsOperands;
+  ::mlir::DictionaryAttr odsAttrs;
+};
+class CastOp : public ::mlir::Op<CastOp, ::mlir::OpTrait::ZeroRegion, ::mlir::OpTrait::OneResult, ::mlir::OpTrait::ZeroSuccessor, ::mlir::OpTrait::OneOperand, ShapeInference::Trait, ::mlir::MemoryEffectOpInterface::Trait, ::mlir::OpTrait::SameOperandsAndResultShape> {
+public:
+  using Op::Op;
+  using Adaptor = CastOpAdaptor;
+  static ::llvm::StringRef getOperationName();
+  std::pair<unsigned, unsigned> getODSOperandIndexAndLength(unsigned index);
+  ::mlir::Operation::operand_range getODSOperands(unsigned index);
+  ::mlir::Value input();
+  ::mlir::MutableOperandRange inputMutable();
+  std::pair<unsigned, unsigned> getODSResultIndexAndLength(unsigned index);
+  ::mlir::Operation::result_range getODSResults(unsigned index);
+  ::mlir::Value output();
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::Type output, ::mlir::Value input);
+  static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::Value input);
+  static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
+  ::mlir::LogicalResult verify();
+  ::mlir::OpFoldResult fold(::llvm::ArrayRef<::mlir::Attribute> operands);
+  void inferShapes();
+  void getEffects(::mlir::SmallVectorImpl<::mlir::SideEffects::EffectInstance<::mlir::MemoryEffects::Effect>> &effects);
 };
 } // namespace tolva
 } // namespace mlir
@@ -162,7 +211,7 @@ private:
   ::mlir::ValueRange odsOperands;
   ::mlir::DictionaryAttr odsAttrs;
 };
-class GenericCallOp : public ::mlir::Op<GenericCallOp, ::mlir::OpTrait::ZeroRegion, ::mlir::OpTrait::OneResult, ::mlir::OpTrait::ZeroSuccessor, ::mlir::OpTrait::VariadicOperands> {
+class GenericCallOp : public ::mlir::Op<GenericCallOp, ::mlir::OpTrait::ZeroRegion, ::mlir::OpTrait::OneResult, ::mlir::OpTrait::ZeroSuccessor, ::mlir::OpTrait::VariadicOperands, ::mlir::CallOpInterface::Trait> {
 public:
   using Op::Op;
   using Adaptor = GenericCallOpAdaptor;
@@ -183,6 +232,8 @@ public:
   static void build(::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::llvm::StringRef callee, ::mlir::ValueRange inputs);
   static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
   ::mlir::LogicalResult verify();
+  CallInterfaceCallable getCallableForCallee();
+  Operation::operand_range getArgOperands();
   static ::mlir::ParseResult parse(::mlir::OpAsmParser &parser, ::mlir::OperationState &result);
   void print(::mlir::OpAsmPrinter &p);
 };
@@ -209,7 +260,7 @@ private:
   ::mlir::ValueRange odsOperands;
   ::mlir::DictionaryAttr odsAttrs;
 };
-class MulOp : public ::mlir::Op<MulOp, ::mlir::OpTrait::ZeroRegion, ::mlir::OpTrait::OneResult, ::mlir::OpTrait::ZeroSuccessor, ::mlir::OpTrait::NOperands<2>::Impl> {
+class MulOp : public ::mlir::Op<MulOp, ::mlir::OpTrait::ZeroRegion, ::mlir::OpTrait::OneResult, ::mlir::OpTrait::ZeroSuccessor, ::mlir::OpTrait::NOperands<2>::Impl, ::mlir::MemoryEffectOpInterface::Trait, ShapeInference::Trait> {
 public:
   using Op::Op;
   using Adaptor = MulOpAdaptor;
@@ -229,6 +280,8 @@ public:
   static ::mlir::ParseResult parse(::mlir::OpAsmParser &parser, ::mlir::OperationState &result);
   void print(::mlir::OpAsmPrinter &p);
   ::mlir::LogicalResult verify();
+  void inferShapes();
+  void getEffects(::mlir::SmallVectorImpl<::mlir::SideEffects::EffectInstance<::mlir::MemoryEffects::Effect>> &effects);
 };
 } // namespace tolva
 } // namespace mlir
@@ -377,7 +430,7 @@ private:
   ::mlir::ValueRange odsOperands;
   ::mlir::DictionaryAttr odsAttrs;
 };
-class TransposeOp : public ::mlir::Op<TransposeOp, ::mlir::OpTrait::ZeroRegion, ::mlir::OpTrait::OneResult, ::mlir::OpTrait::ZeroSuccessor, ::mlir::OpTrait::OneOperand, ::mlir::MemoryEffectOpInterface::Trait> {
+class TransposeOp : public ::mlir::Op<TransposeOp, ::mlir::OpTrait::ZeroRegion, ::mlir::OpTrait::OneResult, ::mlir::OpTrait::ZeroSuccessor, ::mlir::OpTrait::OneOperand, ::mlir::MemoryEffectOpInterface::Trait, ShapeInference::Trait> {
 public:
   using Op::Op;
   using Adaptor = TransposeOpAdaptor;
@@ -394,6 +447,7 @@ public:
   static void build(::mlir::OpBuilder &, ::mlir::OperationState &odsState, ::mlir::TypeRange resultTypes, ::mlir::ValueRange operands, ::llvm::ArrayRef<::mlir::NamedAttribute> attributes = {});
   ::mlir::LogicalResult verify();
   static void getCanonicalizationPatterns(::mlir::OwningRewritePatternList &results, ::mlir::MLIRContext *context);
+  void inferShapes();
   static ::mlir::ParseResult parse(::mlir::OpAsmParser &parser, ::mlir::OperationState &result);
   void print(::mlir::OpAsmPrinter &p);
   void getEffects(::mlir::SmallVectorImpl<::mlir::SideEffects::EffectInstance<::mlir::MemoryEffects::Effect>> &effects);

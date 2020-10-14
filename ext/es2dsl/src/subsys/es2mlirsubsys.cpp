@@ -549,12 +549,34 @@ int es2::genTolvaMLIR() {
     // Apply any generic pass manager command line options and run the pipeline.
     applyPassManagerCLOptions(pm);
 
-    // Add a run of the canonicalizer to optimize the mlir module.
+      // Canonicalization only
+    {
     pm.addNestedPass<mlir::FuncOp>(mlir::createCanonicalizerPass());
-    if (mlir::failed(pm.run(*module)))
+      if (mlir::failed(pm.run(*module))) {
       return 4;
-
+      }
     dumpTolvaMLIRPass(module, "TLVIR (Canonical):");
+  }
+
+#if 0
+    // Optimization passes
+    {
+      // Inline all functions into main and then delete them.
+      pm.addPass(mlir::createInlinerPass());
+
+      // Now that there is only one function, we can infer the shapes of each of
+      // the operations.
+      mlir::OpPassManager& optPM = pm.nest<mlir::FuncOp>();
+      optPM.addPass(mlir::tolva::createShapeInferencePass());
+      optPM.addPass(mlir::createCanonicalizerPass());    // Add a run of the canonicalizer to optimize the mlir module.
+      optPM.addPass(mlir::createCSEPass());
+
+      if (mlir::failed(pm.run(*module))) {
+        return 4;
+      }
+      dumpTolvaMLIRPass(module, "TLVIR (Canonical):");
+    }
+#endif
   }
 
 #if 0
