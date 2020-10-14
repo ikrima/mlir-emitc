@@ -7,6 +7,8 @@
 #include "es2dsl/subsys/es2tlvast.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopedHashTable.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
 #include "mlir/EDSC/Builders.h"
 #include "mlir/ExecutionEngine/ExecutionEngine.h"
@@ -242,7 +244,31 @@ int DSLSubsys_api::loadTolvaMLIR(llvm::SourceMgr& sourceMgr, mlir::MLIRContext& 
 }
 
 
-int es2::genTolvaMLIR() {
+int DSLSubsys_api::dumpLLVMIR(mlir::OwningModuleRef& module) {
+  // Convert the module to LLVM IR in a new LLVM IR context.
+  llvm::LLVMContext llvmContext;
+  auto              llvmModule = mlir::translateModuleToLLVMIR(*module, llvmContext);
+  if (!llvmModule) {
+    llvm::errs() << "Failed to emit LLVM IR\n";
+    return -1;
+  }
+
+  // Initialize LLVM targets.
+  llvm::InitializeNativeTarget();
+  llvm::InitializeNativeTargetAsmPrinter();
+  mlir::ExecutionEngine::setupTargetTriple(llvmModule.get());
+
+  /// Optionally run an optimization pipeline over the llvm module.
+  auto optPipeline = mlir::makeOptimizingTransformer(
+    /*optLevel=*/bOptimize ? 3 : 0, /*sizeLevel=*/0,
+    /*targetMachine=*/nullptr);
+  if (auto err = optPipeline(llvmModule.get())) {
+    llvm::errs() << "Failed to optimize LLVM IR " << err << "\n";
+    return -1;
+  }
+  llvm::errs() << *llvmModule << "\n";
+  return 0;
+}
 
 int DSLSubsys_api::genTolvaMLIR() {
   using namespace std;
@@ -300,11 +326,31 @@ int DSLSubsys_api::genTolvaMLIR() {
       }
     }
 
+
+    if (bLowerToLLVM) {
+      // Finish lowering the toy IR to the LLVM dialect.
+      pm.addPass(mlir::tolva::createLowerToLLVMPass());
+    }
+
     if (mlir::failed(pm.run(*module))) {
       return 4;
     }
     dumpTolvaMLIRPass(module, "TLVIR (Opt):");
   }
+
+  if (bLowerToLLVM) {
+    // Check to see if we are compiling to LLVM IR.
+    if (bDumpLLVMIR) {
+      if (int err = dumpLLVMIR(module)) {
+        return err;
+      }
+    }
+
+  }
+
+
+  return 0;
+}
 
 
 #if 0

@@ -15,6 +15,11 @@ namespace tolva {
   /// Create a pass for lowering operations the remaining `Toy` operations, as
   /// well as `Affine` and `Std`, to the LLVM dialect for codegen.
   std::unique_ptr<mlir::Pass> createLowerToCppPass();
+
+
+  /// Create a pass for lowering operations the remaining `Toy` operations, as
+  /// well as `Affine` and `Std`, to the LLVM dialect for codegen.
+  std::unique_ptr<mlir::Pass> createLowerToLLVMPass();
 }    // namespace tolva
 
 }    // namespace mlir
