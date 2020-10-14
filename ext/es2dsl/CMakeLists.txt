@@ -12,6 +12,7 @@ add_toy_chapter(es2dsl
   src/dialect/es2tolvaops.cpp
   src/dialect/es2mlirpasses.cpp
   src/subsys/es2mlirsubsys.cpp
+  src/subsys/es2mlirsubsys_mlirgen.cpp
   )
 
 get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
