@@ -12,6 +12,16 @@
           "name": "EMITC_INCLUDE_TESTS",
           "value": "False",
           "type": "BOOL"
+        },
+        {
+          "name": "LLVM_DIR",
+          "value": "D:/ikrima/src/pubrepos/llvm-project/build/${name}/lib/cmake/llvm",
+          "type": "PATH"
+        },
+        {
+          "name": "MLIR_DIR",
+          "value": "D:/ikrima/src/pubrepos/llvm-project/build/${name}/lib/cmake/mlir",
+          "type": "PATH"
         }
       ]
     }
