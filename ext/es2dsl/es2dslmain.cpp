@@ -17,11 +17,11 @@ int main(int argc, char** argv) {
   mlir::registerPassManagerCLOptions();
 
   DSLSubsys_api dslsubsys;
-  dslsubsys.bCanonicalizationOnly = false;
-  dslsubsys.bOptimize             = false;
-  dslsubsys.bLowerToAffine        = true;
-  dslsubsys.bLowerToLLVM          = true;
-  dslsubsys.bDumpLLVMIR           = true;
-  dslsubsys.bRunJIT               = false;
+  dslsubsys.genflags       = EDSLGenFlag::LowerToCpp;
+  dslsubsys.bOptimize      = false;
+  dslsubsys.bLowerToAffine = true;
+  dslsubsys.bLowerToLLVM   = true;
+  dslsubsys.bDumpLLVMIR    = true;
+  dslsubsys.bRunJIT        = false;
   return dslsubsys.genTolvaMLIR();
 }

@@ -20,13 +20,19 @@ class SourceMgr;
 namespace es2 {
 struct Module_ast;
 
+enum class EDSLGenFlag : uint8_t
+{
+  Canonicalization,
+  LowerToLLVM,
+  LowerToCpp,
+};
 struct DSLSubsys_api {
-  bool bCanonicalizationOnly = false;
-  bool bOptimize             = false;
-  bool bLowerToAffine        = true;
-  bool bLowerToLLVM          = false;
-  bool bDumpLLVMIR           = false;
-  bool bRunJIT               = false;
+  EDSLGenFlag genflags              = EDSLGenFlag::LowerToLLVM;
+  bool        bOptimize             = false;
+  bool        bLowerToAffine        = true;
+  bool        bLowerToLLVM          = false;
+  bool        bDumpLLVMIR           = false;
+  bool        bRunJIT               = false;
 
   /// Emit IR for the given Toy moduleAST, returns a newly created MLIR module
   /// or nullptr on failure.

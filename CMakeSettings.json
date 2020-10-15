@@ -5,8 +5,8 @@
       "generator": "Ninja",
       "configurationType": "Debug",
       "inheritEnvironments": [ "msvc_x64_x64" ],
-      "buildRoot": "${projectDir}\\build\\${name}",
-      "installRoot": "${projectDir}\\install\\${name}",
+      "buildRoot": "D:\\ikrima\\src\\personal\\tolva\\.bin-int\\${name}\\mliremitbld",
+      "installRoot": "${projectDir}\\instl\\${name}",
       "variables": [
         {
           "name": "EMITC_INCLUDE_TESTS",

@@ -58,7 +58,7 @@ public:
       opWorklist.erase(op);
 
       // Ask the operation to infer its output shapes.
-      LLVM_DEBUG(llvm::dbgs() << "Inferring shape for: " << *op << "\n");
+      llvm::dbgs() << "Inferring shape for: " << *op << "\n";
       if (auto shapeOp = dyn_cast<ShapeInference>(op)) {
         shapeOp.inferShapes();
       }

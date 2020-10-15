@@ -1,8 +1,8 @@
 #include "es2dsl/subsys/es2mlirsubsys.h"
 
-#include "es2dsl/dialect/es2tolvapasses.h"
 #include "es2dsl/dialect/es2tolvadialect.h"
 #include "es2dsl/dialect/es2tolvaops.h"
+#include "es2dsl/dialect/es2tolvapasses.h"
 #include "es2dsl/subsys/es2mlirsubsys.h"
 #include "es2dsl/subsys/es2tlvast.h"
 #include "llvm/ADT/STLExtras.h"
@@ -312,21 +312,20 @@ int DSLSubsys_api::genTolvaMLIR() {
   dumpTolvaMLIRPass(module, "TLVIR (MLIR):");
 
 
-  {
-    mlir::PassManager pm(&context);
-    // Apply any generic pass manager command line options and run the pipeline.
-    applyPassManagerCLOptions(pm);
 
-    // Canonicalization only
-    if (bCanonicalizationOnly) {
-      pm.addNestedPass<mlir::FuncOp>(mlir::createCanonicalizerPass());
-      if (mlir::failed(pm.run(*module))) {
-        return 4;
-      }
-      dumpTolvaMLIRPass(module, "TLVIR (Canonical):");
-      return 0;
+  mlir::PassManager pm(&context);
+  applyPassManagerCLOptions(pm);    // Apply any generic pass manager command line options and run the pipeline.
+
+  switch (genflags) {
+  case EDSLGenFlag::Canonicalization: {
+    pm.addNestedPass<mlir::FuncOp>(mlir::createCanonicalizerPass());
+    if (mlir::failed(pm.run(*module))) {
+      return 4;
     }
-
+    dumpTolvaMLIRPass(module, "TLVIR (Canonical):");
+    break;
+  }
+  case EDSLGenFlag::LowerToLLVM: {
     // Optimization passes
     if (bOptimize || bLowerToAffine) {
       // Inline all functions into main and then delete them.
@@ -365,9 +364,8 @@ int DSLSubsys_api::genTolvaMLIR() {
       return 4;
     }
     dumpTolvaMLIRPass(module, "TLVIR (Opt):");
-  }
 
-  if (bLowerToLLVM) {
+
     // Check to see if we are compiling to LLVM IR.
     if (bDumpLLVMIR) {
       if (int err = dumpLLVMIR(module)) {
@@ -381,8 +379,14 @@ int DSLSubsys_api::genTolvaMLIR() {
         return err;
       }
     }
+    break;
   }
+  case EDSLGenFlag::LowerToCpp: {
 
+
+    break;
+  }
+  }
 
   return 0;
 }

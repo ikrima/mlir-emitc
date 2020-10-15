@@ -185,7 +185,7 @@ struct ReturnOpLowering : public OpRewritePattern<tolva::ReturnOp> {
     if (op.hasOperand()) return failure();
 
     // We lower "toy.return" directly to "std.return".
-    rewriter.replaceOpWithNewOp<ReturnOp>(op);
+    rewriter.replaceOpWithNewOp<mlir::ReturnOp>(op);
     return success();
   }
 };
