@@ -65,12 +65,16 @@ add_toy_chapter(es2dsl
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/include/)
-get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
-get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
+# get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
+# get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
 target_link_libraries(es2dsl
   PRIVATE
-    ${dialect_libs}
-    ${conversion_libs}
+    # ${dialect_libs}
+    # ${conversion_libs}
+    MLIRAffineToStandard
+    MLIRSCFToStandard
+    MLIRStandardToLLVM
+
     MLIRAnalysis
     MLIRCallInterfaces
     MLIRExecutionEngine
@@ -82,6 +86,4 @@ target_link_libraries(es2dsl
     MLIRTransforms
     MLIRPass
     MLIRTranslation
-    MLIRSupport
-    MLIREmitC
-    MLIRTargetCpp)
+    MLIRSupport)
