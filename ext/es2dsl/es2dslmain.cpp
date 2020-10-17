@@ -9,7 +9,7 @@
 using namespace es2;
 
 int main(int argc, char** argv) {
-  mlir::registerAllDialects();
+  //mlir::registerAllDialects();
 
   // Register any command line options.
   mlir::registerAsmPrinterCLOptions();

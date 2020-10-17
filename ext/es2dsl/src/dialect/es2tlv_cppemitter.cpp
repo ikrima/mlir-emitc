@@ -379,6 +379,7 @@ bool CppEmitter::mapToSigned(IntegerType::SignednessSemantics val) {
   case IntegerType::Signed: return true;
   case IntegerType::Unsigned: return false;
   }
+  return false;
 }
 
 bool CppEmitter::hasValueInScope(Value val) {
