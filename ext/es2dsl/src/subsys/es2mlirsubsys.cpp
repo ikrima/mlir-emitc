@@ -382,6 +382,21 @@ int DSLSubsys_api::genTolvaMLIR() {
     break;
   }
   case EDSLGenFlag::LowerToCpp: {
+#if 0
+    {
+      mlir::OpPassManager& optPM = pm.nest<mlir::FuncOp>();
+      optPM.addPass(mlir::createCanonicalizerPass());
+      optPM.addPass(mlir::tolva::createShapeInferencePass());
+      optPM.addPass(mlir::createCSEPass());
+    }
+    pm.addPass(mlir::tolva::createLowerToCppPass());
+    if (mlir::failed(pm.run(*module))) {
+      return 4;
+    }
+    dumpTolvaMLIRPass(module, "TLVIR (LowerToCpp):");
+#endif // 0
+    mlir::tolva::TranslateToCpp(*module->getOperation(), llvm::outs(), false);
+
 
 
     break;

@@ -192,6 +192,33 @@ Operation::operand_range GenericCallOp::getArgOperands() {
   return inputs();
 }
 
+#if 0
+/// Infer the output shape of the AddOp, this is required by the shape inference
+/// interface.
+void GenericCallOp::inferShapes() {
+  llvm::outs()
+    << "-----------\n"
+    << "genopinfer: \n" << *this << "\n";
+  auto inputType = getOperand(0).getType().dyn_cast<RankedTensorType>();
+  llvm::outs()
+    << "input\n" << inputType << "\n"
+    << "out: \n" << getResult().getType() << "\n"
+    << "Result: \n" << getResult() << "\n";
+  llvm::outs() << "-----------\n";
+  if (!inputType) {
+    emitOpError() << "GenOpcall infer error";
+    return;
+  }
+  getResult().setType(inputType);
+  llvm::outs() << "-----------\n" << "Modified:\n";
+  llvm::outs()
+    << "input\n" << inputType << "\n"
+    << "out: \n" << getResult().getType() << "\n"
+    << "Result: \n" << getResult() << "\n";
+  llvm::outs() << "-----------\n";
+}
+#endif // 0
+
 //===----------------------------------------------------------------------===//
 // AddOp
 
